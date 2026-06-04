@@ -28,6 +28,7 @@ type Direction = 'LONG' | 'SHORT';
 type CalculationSnapshot = {
   deposit: number;
   dailyRiskPercent: number;
+  selectedLeverage: number;
   direction: Direction;
   entryPrice: string;
   stopLoss: string;
@@ -51,6 +52,7 @@ const TRADES_PER_DAY = 1;
 function App() {
   const [deposit, setDeposit] = useState(1000);
   const [dailyRiskPercent, setDailyRiskPercent] = useState(5);
+  const [selectedLeverage, setSelectedLeverage] = useState(3);
   const [direction, setDirection] = useState<Direction>('LONG');
   const [entryPrice, setEntryPrice] = useState('100.00');
   const [stopLoss, setStopLoss] = useState('98.00');
@@ -74,7 +76,9 @@ function App() {
       riskDistancePercent > 0 ? riskPerTrade / (riskDistancePercent / 100) : 0;
     const rr = riskDistancePercent > 0 ? rewardDistancePercent / riskDistancePercent : 0;
     const potentialProfit = riskPerTrade * rr;
-    const leverage = deposit > 0 ? positionSize / deposit : 0;
+    const requiredLeverage = deposit > 0 ? positionSize / deposit : 0;
+    const maxPositionByLeverage = deposit > 0 ? deposit * selectedLeverage : 0;
+    const marginRequired = selectedLeverage > 0 ? positionSize / selectedLeverage : 0;
 
     return {
       entry,
@@ -89,12 +93,16 @@ function App() {
       rewardDistancePercent,
       rr,
       potentialProfit,
-      leverage,
+      requiredLeverage,
+      maxPositionByLeverage,
+      marginRequired,
+      selectedLeverage,
     };
   }, [
     dailyRiskPercent,
     deposit,
     entryPrice,
+    selectedLeverage,
     stopLoss,
     takeProfit,
   ]);
@@ -122,11 +130,30 @@ function App() {
       if (calc.tp >= calc.entry) nextErrors.push('Для SHORT Take Profit должен быть ниже Entry.');
     }
 
+    if (selectedLeverage <= 0) {
+      nextErrors.push('Кредитное плечо должно быть больше 0.');
+    } else if (calc.positionSize > calc.maxPositionByLeverage + 0.01) {
+      nextErrors.push(
+        `Выбранного плеча недостаточно: для позиции ${formatMoney(calc.positionSize)} нужно минимум ${formatLeverage(calc.requiredLeverage)}.`,
+      );
+    }
+
     return nextErrors;
-  }, [calc.entry, calc.sl, calc.tp, dailyRiskPercent, deposit, direction]);
+  }, [
+    calc.entry,
+    calc.maxPositionByLeverage,
+    calc.positionSize,
+    calc.requiredLeverage,
+    calc.sl,
+    calc.tp,
+    dailyRiskPercent,
+    deposit,
+    direction,
+    selectedLeverage,
+  ]);
 
   const isValid = errors.length === 0;
-  const leverageLabel = calc.leverage <= 1 ? 'Без плеча' : `${calc.leverage.toFixed(1)}x`;
+  const leverageLabel = formatSelectedLeverage(selectedLeverage);
   const riskPercentOfDeposit =
     deposit > 0 ? Math.max(0, (calc.riskPerTrade / deposit) * 100) : 0;
   const isBalanced = isValid && calc.rr >= 1.5 && riskPercentOfDeposit <= 3;
@@ -173,6 +200,7 @@ function App() {
       snapshot: {
         deposit,
         dailyRiskPercent,
+        selectedLeverage,
         direction,
         entryPrice,
         stopLoss,
@@ -191,6 +219,7 @@ function App() {
   const applyHistoryItem = (item: HistoryItem) => {
     setDeposit(item.snapshot.deposit);
     setDailyRiskPercent(item.snapshot.dailyRiskPercent);
+    setSelectedLeverage(item.snapshot.selectedLeverage);
     setDirection(item.snapshot.direction);
     setEntryPrice(item.snapshot.entryPrice);
     setStopLoss(item.snapshot.stopLoss);
@@ -228,6 +257,7 @@ function App() {
             setDeposit={setDeposit}
             setDirection={setDirection}
             setEntryPrice={setEntryPrice}
+            setSelectedLeverage={setSelectedLeverage}
             setStopLoss={setStopLoss}
             setTakeProfit={setTakeProfit}
             stopLoss={stopLoss}
@@ -273,7 +303,10 @@ type Calc = {
   rewardDistancePercent: number;
   rr: number;
   potentialProfit: number;
-  leverage: number;
+  requiredLeverage: number;
+  maxPositionByLeverage: number;
+  marginRequired: number;
+  selectedLeverage: number;
 };
 
 function Header({
@@ -374,6 +407,7 @@ function CalculatorPanel({
   setDeposit,
   setDirection,
   setEntryPrice,
+  setSelectedLeverage,
   setStopLoss,
   setTakeProfit,
   stopLoss,
@@ -389,6 +423,7 @@ function CalculatorPanel({
   setDeposit: (value: number) => void;
   setDirection: (value: Direction) => void;
   setEntryPrice: (value: string) => void;
+  setSelectedLeverage: (value: number) => void;
   setStopLoss: (value: string) => void;
   setTakeProfit: (value: string) => void;
   stopLoss: string;
@@ -413,6 +448,13 @@ function CalculatorPanel({
           dailyRiskAmount={calc.dailyRiskAmount}
           value={dailyRiskPercent}
           onChange={setDailyRiskPercent}
+        />
+
+        <LeverageControl
+          marginRequired={calc.marginRequired}
+          recommendedLeverage={calc.requiredLeverage}
+          value={calc.selectedLeverage}
+          onChange={setSelectedLeverage}
         />
 
         <div className="grid grid-cols-2 gap-3">
@@ -524,7 +566,7 @@ function ResultsPanel({
         <MetricCard icon={<ShieldCheck size={22} />} label="Дневной лимит" value={formatMoney(calc.dailyRiskAmount)} />
         <MetricCard icon={<Activity size={22} />} label="Риск на сделку" value={formatApproxMoney(calc.riskPerTrade)} />
         <MetricCard icon={<LineChart size={22} />} label="Размер позиции" value={formatMoney(calc.positionSize)} />
-        <MetricCard icon={<BarChart3 size={22} />} label="Плечо" value={leverageLabel} />
+        <MetricCard icon={<BarChart3 size={22} />} label="Кредитное плечо" value={leverageLabel} />
         <MetricCard icon={<Calculator size={22} />} label="Риск/прибыль" value={`1 : ${formatRatio(calc.rr)}`} />
       </div>
 
@@ -730,8 +772,8 @@ function EducationSection() {
       icon: <Activity size={22} />,
     },
     {
-      title: 'Укажите стоп',
-      text: 'При Stop Loss на 2% размер позиции ≈ 2500$.',
+      title: 'Укажите стоп и плечо',
+      text: 'При Stop Loss на 2% позиция ≈ 2500$, рекомендованное плечо 2.5x.',
       icon: <BarChart3 size={22} />,
     },
   ];
@@ -761,7 +803,7 @@ function EducationSection() {
       </div>
 
       <p className="mt-4 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-center text-base font-black leading-7 text-brand-700">
-        Главная мысль: сначала считайте риск, стоп и размер позиции — и только потом открывайте сделку.
+        Главная мысль: сначала считайте риск, стоп, размер позиции и плечо — и только потом открывайте сделку.
       </p>
     </section>
   );
@@ -796,6 +838,11 @@ function FaqModal({ onClose }: { onClose: () => void }) {
             title="Как считается размер позиции?"
             formula="Процент стопа = |Цена входа − Stop Loss| ÷ Цена входа; размер позиции = риск ÷ процент стопа"
             example="Entry 100$, Stop Loss 98$ → стоп 2%; 50$ ÷ 0.02 ≈ 2500$"
+          />
+          <FaqCard
+            title="Как считается плечо?"
+            formula="Рекомендованное плечо = Размер позиции ÷ Депозит; маржа = Размер позиции ÷ выбранное плечо"
+            example="2500$ ÷ 1000$ = 2.5x; при 3x маржа ≈ 833$"
           />
           <div className="rounded-2xl border border-brand-100 bg-white p-4 shadow-soft">
             <h3 className="text-lg font-black text-brand-800">Почему важны лимиты?</h3>
@@ -975,6 +1022,65 @@ function DailyRiskControl({
           <span>{max}%</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LeverageControl({
+  marginRequired,
+  onChange,
+  recommendedLeverage,
+  value,
+}: {
+  marginRequired: number;
+  onChange: (value: number) => void;
+  recommendedLeverage: number;
+  value: number;
+}) {
+  const min = 1;
+  const max = 20;
+  const safeValue = clamp(value, min, max);
+  const percent = clamp(((safeValue - min) / (max - min)) * 100, 0, 100);
+
+  return (
+    <div className="leverage-card">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="field-icon">
+            <BarChart3 size={18} />
+          </span>
+          <div>
+            <h3>Кредитное плечо</h3>
+            <p>Рекомендованное плечо: {formatLeverage(recommendedLeverage)}</p>
+          </div>
+        </div>
+        <strong>{formatSelectedLeverage(safeValue)}</strong>
+      </div>
+
+      <div className="leverage-slider">
+        <input
+          aria-label="Кредитное плечо"
+          className="risk-range"
+          max={max}
+          min={min}
+          step={0.5}
+          type="range"
+          value={safeValue}
+          onChange={(event) => onChange(Number(event.currentTarget.value))}
+          style={{
+            background: `linear-gradient(90deg, #7447ee 0%, #7447ee ${percent}%, #ebe5fb ${percent}%, #ebe5fb 100%)`,
+          }}
+        />
+        <div className="leverage-range-caption">
+          <span>1x</span>
+          <span>{formatSelectedLeverage(safeValue)}</span>
+          <span>20x</span>
+        </div>
+      </div>
+
+      <p className="leverage-help">
+        Маржа под позицию при выбранном плече: {formatMoney(marginRequired)}
+      </p>
     </div>
   );
 }
@@ -1311,6 +1417,7 @@ function normalizeSnapshot(
   return {
     deposit: normalizePositiveNumber(snapshot?.deposit, fallback.deposit),
     dailyRiskPercent: normalizePositiveNumber(snapshot?.dailyRiskPercent, fallback.dailyRiskPercent),
+    selectedLeverage: normalizeLeverage(snapshot?.selectedLeverage, fallback.selectedLeverage),
     direction: isDirection(snapshot?.direction) ? snapshot.direction : fallback.direction,
     entryPrice: normalizePriceValue(snapshot?.entryPrice, fallback.entryPrice),
     stopLoss: normalizePriceValue(snapshot?.stopLoss, fallback.stopLoss),
@@ -1328,6 +1435,7 @@ function snapshotFromHistoryDisplay(
   const positionSize = parseDisplayNumber(item.position) || 1000;
   const rr = parseRatioDisplay(item.rr) || 2;
   const stopPercent = positionSize > 0 ? (riskAmount / positionSize) * 100 : 2;
+  const requiredLeverage = deposit > 0 ? positionSize / deposit : 1;
   const entry = 100;
   const stopDistance = (entry * stopPercent) / 100;
   const rewardDistance = stopDistance * rr;
@@ -1335,6 +1443,7 @@ function snapshotFromHistoryDisplay(
   return {
     deposit,
     dailyRiskPercent,
+    selectedLeverage: roundLeverageUp(requiredLeverage),
     direction,
     entryPrice: formatInputPrice(entry),
     stopLoss: formatInputPrice(direction === 'LONG' ? entry - stopDistance : entry + stopDistance),
@@ -1344,6 +1453,16 @@ function snapshotFromHistoryDisplay(
 
 function normalizePositiveNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeLeverage(value: unknown, fallback: number) {
+  const leverage = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return clamp(leverage, 1, 20);
+}
+
+function roundLeverageUp(value: number) {
+  if (!Number.isFinite(value) || value <= 1) return 1;
+  return clamp(Math.ceil(value * 2) / 2, 1, 20);
 }
 
 function normalizePriceValue(value: unknown, fallback: string) {
@@ -1389,6 +1508,20 @@ function formatApproxMoney(value: number) {
 function formatRatio(value: number) {
   if (!Number.isFinite(value) || value <= 0) return '0.0';
   return value.toFixed(1);
+}
+
+function formatLeverage(value: number) {
+  if (!Number.isFinite(value) || value <= 1) return 'Без плеча';
+  return `${formatLeverageNumber(value)}x`;
+}
+
+function formatSelectedLeverage(value: number) {
+  if (!Number.isFinite(value) || value <= 1) return 'Без плеча';
+  return `${formatLeverageNumber(value)}x`;
+}
+
+function formatLeverageNumber(value: number) {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 }
 
 function formatPrice(value: number) {
