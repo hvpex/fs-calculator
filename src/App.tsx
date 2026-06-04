@@ -3,10 +3,11 @@ import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
-  BarChart3,
   Calculator,
   CheckCircle2,
   CircleAlert,
+  CircleDollarSign,
+  Gauge,
   HelpCircle,
   History as HistoryIcon,
   Info,
@@ -526,7 +527,7 @@ function CalculatorPanel({
           </p>
         </div>
 
-        <CatDuo />
+        <CatSticker alt="Котик с блокнотом" image="/kotik.png" tone="left" />
       </div>
     </article>
   );
@@ -546,7 +547,7 @@ function ResultsPanel({
   leverageLabel: string;
 }) {
   return (
-    <article className="panel-card">
+    <article className="panel-card results-panel">
       <div
         className={`mb-4 inline-flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-extrabold ${
           isBalanced
@@ -562,11 +563,12 @@ function ResultsPanel({
             : 'Нужно исправить параметры сделки'}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard icon={<ShieldCheck size={22} />} label="Дневной лимит" value={formatMoney(calc.dailyRiskAmount)} />
         <MetricCard icon={<Activity size={22} />} label="Риск на сделку" value={formatApproxMoney(calc.riskPerTrade)} />
         <MetricCard icon={<LineChart size={22} />} label="Размер позиции" value={formatMoney(calc.positionSize)} />
-        <MetricCard icon={<BarChart3 size={22} />} label="Кредитное плечо" value={leverageLabel} />
+        <MetricCard icon={<Gauge size={22} />} label="Кредитное плечо" value={leverageLabel} />
+        <MetricCard icon={<CircleDollarSign size={22} />} label="Маржа" value={formatMoney(calc.marginRequired)} />
         <MetricCard icon={<Calculator size={22} />} label="Риск/прибыль" value={`1 : ${formatRatio(calc.rr)}`} />
       </div>
 
@@ -621,6 +623,8 @@ function ResultsPanel({
           <ShieldCheck size={82} strokeWidth={1.4} />
         </div>
       </section>
+
+      <CatSticker alt="Кошечка с листом" image="/kissa.png" tone="right" />
     </article>
   );
 }
@@ -745,11 +749,18 @@ function HistorySection({
   );
 }
 
-function CatDuo() {
+function CatSticker({
+  alt,
+  image,
+  tone,
+}: {
+  alt: string;
+  image: string;
+  tone: 'left' | 'right';
+}) {
   return (
-    <div className="cat-duo" aria-label="Помощники расчёта">
-      <img src="/kotik.png" alt="Котик с блокнотом" className="cat-image cat-left" />
-      <img src="/kissa.png" alt="Кошечка с листом" className="cat-image cat-right" />
+    <div className={`cat-sticker-wrap ${tone}`} aria-label="Помощник расчёта">
+      <img src={image} alt={alt} className={`cat-sticker ${tone}`} />
     </div>
   );
 }
@@ -774,7 +785,7 @@ function EducationSection() {
     {
       title: 'Укажите стоп и плечо',
       text: 'При Stop Loss на 2% позиция ≈ 2500$, рекомендованное плечо 2.5x.',
-      icon: <BarChart3 size={22} />,
+      icon: <Gauge size={22} />,
     },
   ];
 
@@ -1047,7 +1058,7 @@ function LeverageControl({
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <span className="field-icon">
-            <BarChart3 size={18} />
+            <Gauge size={18} />
           </span>
           <div>
             <h3>Кредитное плечо</h3>
@@ -1079,7 +1090,8 @@ function LeverageControl({
       </div>
 
       <p className="leverage-help">
-        Маржа под позицию при выбранном плече: {formatMoney(marginRequired)}
+        <CircleDollarSign size={16} />
+        <span>Маржа под позицию: {formatMoney(marginRequired)}</span>
       </p>
     </div>
   );
