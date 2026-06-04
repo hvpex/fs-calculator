@@ -48,60 +48,6 @@ type HistoryItem = {
 const HISTORY_KEY = 'financial-freedom-risk-history';
 const TRADES_PER_DAY = 1;
 
-const defaultHistory: HistoryItem[] = [
-  {
-    id: 'example-btc',
-    instrument: 'BTCUSDT',
-    direction: 'LONG',
-    risk: '1%',
-    rr: '1 : 2.5',
-    position: '228$',
-    date: 'Сегодня, 11:24',
-    snapshot: {
-      deposit: 1000,
-      dailyRiskPercent: 1,
-      direction: 'LONG',
-      entryPrice: '100.00',
-      stopLoss: '95.61',
-      takeProfit: '110.96',
-    },
-  },
-  {
-    id: 'example-eth',
-    instrument: 'ETHUSDT',
-    direction: 'SHORT',
-    risk: '1%',
-    rr: '1 : 3.0',
-    position: '310$',
-    date: 'Сегодня, 09:43',
-    snapshot: {
-      deposit: 1000,
-      dailyRiskPercent: 1,
-      direction: 'SHORT',
-      entryPrice: '100.00',
-      stopLoss: '103.23',
-      takeProfit: '90.32',
-    },
-  },
-  {
-    id: 'example-sol',
-    instrument: 'SOLUSDT',
-    direction: 'LONG',
-    risk: '0.5%',
-    rr: '1 : 1.8',
-    position: '180$',
-    date: 'Вчера, 18:22',
-    snapshot: {
-      deposit: 1000,
-      dailyRiskPercent: 0.5,
-      direction: 'LONG',
-      entryPrice: '100.00',
-      stopLoss: '97.22',
-      takeProfit: '105.00',
-    },
-  },
-];
-
 function App() {
   const [deposit, setDeposit] = useState(1000);
   const [dailyRiskPercent, setDailyRiskPercent] = useState(5);
@@ -679,69 +625,77 @@ function HistorySection({
             </tr>
           </thead>
           <tbody>
-            {history.map((item) => (
-              <Fragment key={item.id}>
-                <tr className="border-t border-brand-100/80 transition hover:bg-brand-50/40">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3 font-extrabold text-ink">
-                      <span className="history-symbol">
-                        <LineChart size={15} />
+            {history.length === 0 ? (
+              <tr className="border-t border-brand-100/80">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-ink/50">
+                  История пока пустая. Сохранённые расчёты появятся здесь только в вашем браузере.
+                </td>
+              </tr>
+            ) : (
+              history.map((item) => (
+                <Fragment key={item.id}>
+                  <tr className="border-t border-brand-100/80 transition hover:bg-brand-50/40">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 font-extrabold text-ink">
+                        <span className="history-symbol">
+                          <LineChart size={15} />
+                        </span>
+                        {item.instrument}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`direction-pill ${item.direction === 'LONG' ? 'long' : 'short'}`}>
+                        {item.direction}
                       </span>
-                      {item.instrument}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`direction-pill ${item.direction === 'LONG' ? 'long' : 'short'}`}>
-                      {item.direction}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-ink/70">{item.risk}</td>
-                  <td className="px-4 py-3 font-black text-brand-800">{item.rr}</td>
-                  <td className="px-4 py-3 font-bold text-ink/70">{item.position}</td>
-                  <td className="px-4 py-3 font-semibold text-ink/60">{item.date}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="table-icon-button"
-                        onClick={() => setOpenMenuId((id) => (id === item.id ? null : item.id))}
-                        aria-expanded={openMenuId === item.id}
-                        aria-label={`Меню расчёта ${item.instrument}`}
-                      >
-                        <MoreHorizontal size={18} />
-                      </button>
-                      <button
-                        type="button"
-                        className="table-icon-button danger"
-                        onClick={() => onDelete(item.id)}
-                        aria-label={`Удалить расчёт ${item.instrument}`}
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {openMenuId === item.id && (
-                  <tr className="border-t border-brand-100/80 bg-brand-50/50">
-                    <td colSpan={7} className="px-4 py-3">
-                      <div className="history-row-menu">
+                    </td>
+                    <td className="px-4 py-3 font-bold text-ink/70">{item.risk}</td>
+                    <td className="px-4 py-3 font-black text-brand-800">{item.rr}</td>
+                    <td className="px-4 py-3 font-bold text-ink/70">{item.position}</td>
+                    <td className="px-4 py-3 font-semibold text-ink/60">{item.date}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
-                          className="history-menu-action"
-                          onClick={() => {
-                            onApply(item);
-                            setOpenMenuId(null);
-                          }}
+                          className="table-icon-button"
+                          onClick={() => setOpenMenuId((id) => (id === item.id ? null : item.id))}
+                          aria-expanded={openMenuId === item.id}
+                          aria-label={`Меню расчёта ${item.instrument}`}
                         >
-                          <Calculator size={16} />
-                          Добавить в калькулятор
+                          <MoreHorizontal size={18} />
+                        </button>
+                        <button
+                          type="button"
+                          className="table-icon-button danger"
+                          onClick={() => onDelete(item.id)}
+                          aria-label={`Удалить расчёт ${item.instrument}`}
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
+                  {openMenuId === item.id && (
+                    <tr className="border-t border-brand-100/80 bg-brand-50/50">
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="history-row-menu">
+                          <button
+                            type="button"
+                            className="history-menu-action"
+                            onClick={() => {
+                              onApply(item);
+                              setOpenMenuId(null);
+                            }}
+                          >
+                            <Calculator size={16} />
+                            Добавить в калькулятор
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -1309,17 +1263,21 @@ function DecorativeChart() {
 function readHistory() {
   try {
     const raw = window.localStorage.getItem(HISTORY_KEY);
-    if (!raw) return defaultHistory;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return defaultHistory;
+    if (!Array.isArray(parsed)) return [];
     const normalized = parsed
       .map((item, index) => normalizeHistoryItem(item, index))
-      .filter((item): item is HistoryItem => item !== null);
+      .filter((item): item is HistoryItem => item !== null && !isLegacySeededHistoryItem(item));
 
-    return normalized.length > 0 ? normalized : defaultHistory;
+    return normalized;
   } catch {
-    return defaultHistory;
+    return [];
   }
+}
+
+function isLegacySeededHistoryItem(item: HistoryItem) {
+  return item.id.startsWith('example-');
 }
 
 function normalizeHistoryItem(item: unknown, index: number): HistoryItem | null {
