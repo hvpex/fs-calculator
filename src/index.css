@@ -64,8 +64,13 @@ button {
     @apply rounded-[26px] border border-brand-100 bg-white p-4 shadow-card sm:p-5;
   }
 
+  .calculator-panel,
   .results-panel {
     @apply flex flex-col;
+  }
+
+  .calculator-panel-body {
+    @apply flex min-h-0 flex-1 flex-col gap-4;
   }
 
   .icon-tile {
@@ -254,7 +259,8 @@ button {
   }
 
   .cat-sticker-wrap {
-    @apply relative -mb-10 mt-1 flex items-end overflow-visible px-0 pt-0;
+    @apply relative mt-auto flex shrink-0 items-end justify-center overflow-hidden px-0 pt-0;
+    margin-bottom: -1rem;
   }
 
   .cat-sticker-wrap.left {
@@ -262,11 +268,11 @@ button {
   }
 
   .cat-sticker-wrap.right {
-    @apply mt-auto justify-center;
+    @apply justify-center;
   }
 
   .cat-sticker {
-    @apply relative z-10 h-[154px] translate-y-5 object-contain;
+    @apply relative z-10 h-[154px] object-contain;
   }
 
   .cat-sticker.left {
@@ -617,20 +623,25 @@ button {
   }
 
   .cat-sticker-wrap {
-    margin-bottom: -2rem;
+    margin-bottom: -1rem;
   }
 
   .cat-sticker {
     height: 122px;
-    transform: translateY(1rem);
+    transform: none;
   }
 
   .cat-sticker.right {
     max-width: 46%;
+    transform: none;
   }
 }
 
 @media (min-width: 640px) {
+  .cat-sticker-wrap {
+    margin-bottom: -1.25rem;
+  }
+
   .price-row {
     grid-template-columns: 136px minmax(0, 1fr) 70px;
   }

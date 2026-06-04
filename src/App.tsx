@@ -431,10 +431,10 @@ function CalculatorPanel({
   takeProfit: string;
 }) {
   return (
-    <article className="panel-card">
+    <article className="panel-card calculator-panel">
       <PanelHeading icon={<SlidersHorizontal size={19} />} title="Параметры сделки" />
 
-      <div className="space-y-4">
+      <div className="calculator-panel-body">
         <FieldRow icon={<Wallet size={18} />} label="Ваш депозит">
           <AmountInput
             min={0}
