@@ -679,17 +679,42 @@ function ResultsPanel({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <MetricCard icon={<ShieldCheck size={22} />} label="Дневной лимит" value={formatPreciseMoney(calc.dailyRiskAmount)} />
-        <MetricCard icon={<Activity size={22} />} label="Риск на сделку" value={formatApproxPreciseMoney(calc.riskPerTrade)} />
-        <MetricCard icon={<LineChart size={22} />} label="Размер позиции" value={formatMoney(calc.positionSize)} />
-        <MetricCard icon={<Gauge size={22} />} label="Плечо" value={leverageLabel} />
+        <MetricCard
+          icon={<ShieldCheck size={22} />}
+          label="Дневной лимит"
+          tooltip="Максимальная сумма, которую вы готовы потерять за день: депозит × лимит риска."
+          value={formatPreciseMoney(calc.dailyRiskAmount)}
+        />
+        <MetricCard
+          icon={<Activity size={22} />}
+          label="Риск на сделку"
+          tooltip="Часть дневного лимита на одну сделку: дневной лимит ÷ количество сделок."
+          value={formatApproxPreciseMoney(calc.riskPerTrade)}
+        />
+        <MetricCard
+          icon={<LineChart size={22} />}
+          label="Размер позиции"
+          tooltip="Полный объём сделки. Считается как риск на сделку ÷ процент Stop Loss."
+          value={formatMoney(calc.positionSize)}
+        />
+        <MetricCard
+          icon={<Gauge size={22} />}
+          label="Плечо"
+          tooltip="Плечо выбирается вручную. Оно не меняет риск, а уменьшает сумму собственных средств для входа."
+          value={leverageLabel}
+        />
         <MetricCard
           icon={<CircleDollarSign size={22} />}
           label="Сумма входа"
           tooltip="Сумма входа — это маржа, которую нужно внести при выбранном плече: размер позиции ÷ плечо."
           value={formatApproxPreciseMoney(calc.entryAmount)}
         />
-        <MetricCard icon={<Calculator size={22} />} label="Риск/прибыль" value={`1 : ${formatRatio(calc.rr)}`} />
+        <MetricCard
+          icon={<Calculator size={22} />}
+          label="Риск/прибыль"
+          tooltip="Соотношение потенциальной прибыли к риску: расстояние до Take Profit ÷ расстояние до Stop Loss."
+          value={`1 : ${formatRatio(calc.rr)}`}
+        />
       </div>
 
       <RiskComparison
@@ -778,7 +803,7 @@ function HistorySection({
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-brand-100">
-        <table className="min-w-[760px] w-full border-collapse bg-white text-left text-sm">
+        <table className="min-w-[980px] w-full border-collapse bg-white text-left text-sm">
           <thead className="bg-brand-50 text-xs uppercase text-ink/50">
             <tr>
               <th className="px-4 py-3 font-black">Инструмент</th>
@@ -786,6 +811,8 @@ function HistorySection({
               <th className="px-4 py-3 font-black">Риск</th>
               <th className="px-4 py-3 font-black">Риск/прибыль</th>
               <th className="px-4 py-3 font-black">Размер позиции</th>
+              <th className="px-4 py-3 font-black">Плечо</th>
+              <th className="px-4 py-3 font-black">Сумма входа</th>
               <th className="px-4 py-3 font-black">Дата</th>
               <th className="px-4 py-3 text-right font-black"> </th>
             </tr>
@@ -793,7 +820,7 @@ function HistorySection({
           <tbody>
             {history.length === 0 ? (
               <tr className="border-t border-brand-100/80">
-                <td colSpan={7} className="px-4 py-8 text-center text-sm font-bold text-ink/50">
+                <td colSpan={9} className="px-4 py-8 text-center text-sm font-bold text-ink/50">
                   История пока пустая. Сохранённые расчёты появятся здесь только в вашем браузере.
                 </td>
               </tr>
@@ -817,6 +844,8 @@ function HistorySection({
                     <td className="px-4 py-3 font-bold text-ink/70">{item.risk}</td>
                     <td className="px-4 py-3 font-black text-brand-800">{item.rr}</td>
                     <td className="px-4 py-3 font-bold text-ink/70">{item.position}</td>
+                    <td className="px-4 py-3 font-bold text-ink/70">{formatSelectedLeverage(item.summary.leverage)}</td>
+                    <td className="px-4 py-3 font-bold text-ink/70">{formatPreciseMoney(item.summary.entryAmount)}</td>
                     <td className="px-4 py-3 font-semibold text-ink/60">{item.date}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-1">
@@ -842,7 +871,7 @@ function HistorySection({
                   </tr>
                   {openMenuId === item.id && (
                     <tr className="border-t border-brand-100/80 bg-brand-50/50">
-                      <td colSpan={7} className="px-4 py-3">
+                      <td colSpan={9} className="px-4 py-3">
                         <div className="history-row-menu">
                           <button
                             type="button"
@@ -1007,9 +1036,9 @@ function FaqModal({ onClose }: { onClose: () => void }) {
             formula={
               <>
                 <span className="block">Размер позиции не зависит от плеча.</span>
-                <span className="block">Плечо выбирается вручную.</span>
+                <span className="block">Плечо выбирается вручную: 1x, 2x, 3x и т.д.</span>
+                <span className="block">Оно не меняет риск, а только уменьшает сумму собственных средств для входа.</span>
                 <span className="block">Сумма входа = Размер позиции ÷ Плечо</span>
-                <span className="block">Если значение плеча получается дробным, оно отображается округлённым: 1.4 → 1x.</span>
               </>
             }
             example={
