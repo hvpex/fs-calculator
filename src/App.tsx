@@ -29,6 +29,7 @@ type Direction = 'LONG' | 'SHORT';
 type CalculationSnapshot = {
   deposit: number;
   dailyRiskPercent: number;
+  tradesPerDay: number;
   selectedLeverage: number;
   direction: Direction;
   entryPrice: string;
@@ -48,57 +49,30 @@ type HistoryItem = {
 };
 
 const HISTORY_KEY = 'financial-freedom-risk-history';
-const TRADES_PER_DAY = 1;
 
 function App() {
   const [deposit, setDeposit] = useState(1000);
   const [dailyRiskPercent, setDailyRiskPercent] = useState(5);
-  const [selectedLeverage, setSelectedLeverage] = useState(3);
+  const [tradesPerDay, setTradesPerDay] = useState(3);
+  const [selectedLeverage, setSelectedLeverage] = useState(1);
   const [direction, setDirection] = useState<Direction>('LONG');
   const [entryPrice, setEntryPrice] = useState('100.00');
-  const [stopLoss, setStopLoss] = useState('98.00');
-  const [takeProfit, setTakeProfit] = useState('106.00');
+  const [stopLoss, setStopLoss] = useState('93.00');
+  const [takeProfit, setTakeProfit] = useState('118.00');
   const [isFaqOpen, setIsFaqOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>(() => readHistory());
 
   const calc = useMemo(() => {
-    const entry = parsePrice(entryPrice);
-    const sl = parsePrice(stopLoss);
-    const tp = parsePrice(takeProfit);
-    const dailyRiskAmount =
-      deposit > 0 && dailyRiskPercent > 0 ? (deposit * dailyRiskPercent) / 100 : 0;
-    const riskPerTrade = dailyRiskAmount / TRADES_PER_DAY;
-    const riskDistance = Math.abs(entry - sl);
-    const profitDistance = Math.abs(tp - entry);
-    const riskDistancePercent = entry > 0 ? (riskDistance / entry) * 100 : 0;
-    const rewardDistancePercent = entry > 0 ? (profitDistance / entry) * 100 : 0;
-    const positionSize =
-      riskDistancePercent > 0 ? riskPerTrade / (riskDistancePercent / 100) : 0;
-    const rr = riskDistancePercent > 0 ? rewardDistancePercent / riskDistancePercent : 0;
-    const potentialProfit = riskPerTrade * rr;
-    const requiredLeverage = deposit > 0 ? positionSize / deposit : 0;
-    const maxPositionByLeverage = deposit > 0 ? deposit * selectedLeverage : 0;
-    const marginRequired = selectedLeverage > 0 ? positionSize / selectedLeverage : 0;
-
-    return {
-      entry,
-      sl,
-      tp,
-      dailyRiskAmount,
-      riskPerTrade,
-      positionSize,
-      riskDistance,
-      profitDistance,
-      riskDistancePercent,
-      rewardDistancePercent,
-      rr,
-      potentialProfit,
-      requiredLeverage,
-      maxPositionByLeverage,
-      marginRequired,
+    return calculateRiskValues({
+      dailyRiskPercent,
+      deposit,
+      entryPrice,
       selectedLeverage,
-    };
+      stopLoss,
+      takeProfit,
+      tradesPerDay,
+    });
   }, [
     dailyRiskPercent,
     deposit,
@@ -106,6 +80,7 @@ function App() {
     selectedLeverage,
     stopLoss,
     takeProfit,
+    tradesPerDay,
   ]);
 
   const errors = useMemo(() => {
@@ -113,6 +88,7 @@ function App() {
 
     if (deposit <= 0) nextErrors.push('Депозит должен быть больше 0.');
     if (dailyRiskPercent <= 0) nextErrors.push('Лимит риска должен быть больше 0.');
+    if (tradesPerDay <= 0) nextErrors.push('Количество сделок должно быть больше 0.');
     if (!Number.isFinite(calc.entry) || calc.entry <= 0) {
       nextErrors.push('Цена входа должна быть больше 0.');
     }
@@ -151,10 +127,11 @@ function App() {
     deposit,
     direction,
     selectedLeverage,
+    tradesPerDay,
   ]);
 
   const isValid = errors.length === 0;
-  const leverageLabel = formatSelectedLeverage(selectedLeverage);
+  const leverageLabel = formatLeverage(calc.requiredLeverage);
   const riskPercentOfDeposit =
     deposit > 0 ? Math.max(0, (calc.riskPerTrade / deposit) * 100) : 0;
   const isBalanced = isValid && calc.rr >= 1.5 && riskPercentOfDeposit <= 3;
@@ -201,6 +178,7 @@ function App() {
       snapshot: {
         deposit,
         dailyRiskPercent,
+        tradesPerDay,
         selectedLeverage,
         direction,
         entryPrice,
@@ -220,6 +198,7 @@ function App() {
   const applyHistoryItem = (item: HistoryItem) => {
     setDeposit(item.snapshot.deposit);
     setDailyRiskPercent(item.snapshot.dailyRiskPercent);
+    setTradesPerDay(item.snapshot.tradesPerDay);
     setSelectedLeverage(item.snapshot.selectedLeverage);
     setDirection(item.snapshot.direction);
     setEntryPrice(item.snapshot.entryPrice);
@@ -261,8 +240,10 @@ function App() {
             setSelectedLeverage={setSelectedLeverage}
             setStopLoss={setStopLoss}
             setTakeProfit={setTakeProfit}
+            setTradesPerDay={setTradesPerDay}
             stopLoss={stopLoss}
             takeProfit={takeProfit}
+            tradesPerDay={tradesPerDay}
           />
 
           <ResultsPanel
@@ -309,6 +290,63 @@ type Calc = {
   marginRequired: number;
   selectedLeverage: number;
 };
+
+type CalculationInput = {
+  deposit: number;
+  dailyRiskPercent: number;
+  tradesPerDay: number;
+  selectedLeverage: number;
+  entryPrice: string;
+  stopLoss: string;
+  takeProfit: string;
+};
+
+function calculateRiskValues({
+  dailyRiskPercent,
+  deposit,
+  entryPrice,
+  selectedLeverage,
+  stopLoss,
+  takeProfit,
+  tradesPerDay,
+}: CalculationInput): Calc {
+  const entry = parsePrice(entryPrice);
+  const sl = parsePrice(stopLoss);
+  const tp = parsePrice(takeProfit);
+  const dailyRiskAmount =
+    deposit > 0 && dailyRiskPercent > 0 ? (deposit * dailyRiskPercent) / 100 : 0;
+  const riskPerTrade = tradesPerDay > 0 ? dailyRiskAmount / tradesPerDay : 0;
+  const riskDistancePrice = Math.abs(entry - sl);
+  const profitDistance = Math.abs(tp - entry);
+  const riskDistance = entry > 0 ? riskDistancePrice / entry : 0;
+  const riskDistancePercent = riskDistance * 100;
+  const rewardDistancePercent = entry > 0 ? (profitDistance / entry) * 100 : 0;
+  const positionSize = riskDistance > 0 ? riskPerTrade / riskDistance : 0;
+  const rr = riskDistancePrice > 0 ? profitDistance / riskDistancePrice : 0;
+  const potentialProfit = riskPerTrade * rr;
+  const requiredLeverage = deposit > 0 ? positionSize / deposit : 0;
+  const maxPositionByLeverage = deposit > 0 ? deposit * selectedLeverage : 0;
+  const marginRequired = selectedLeverage > 0 ? positionSize / selectedLeverage : 0;
+
+  return {
+    entry,
+    sl,
+    tp,
+    dailyRiskAmount,
+    riskPerTrade,
+    positionSize,
+    riskDistance,
+    profitDistance,
+    riskDistancePercent,
+    rewardDistancePercent,
+    rr,
+    potentialProfit,
+    requiredLeverage,
+    maxPositionByLeverage,
+    marginRequired,
+    selectedLeverage,
+  };
+}
 
 function Header({
   notice,
@@ -411,8 +449,10 @@ function CalculatorPanel({
   setSelectedLeverage,
   setStopLoss,
   setTakeProfit,
+  setTradesPerDay,
   stopLoss,
   takeProfit,
+  tradesPerDay,
 }: {
   calc: Calc;
   dailyRiskPercent: number;
@@ -427,8 +467,10 @@ function CalculatorPanel({
   setSelectedLeverage: (value: number) => void;
   setStopLoss: (value: string) => void;
   setTakeProfit: (value: string) => void;
+  setTradesPerDay: (value: number) => void;
   stopLoss: string;
   takeProfit: string;
+  tradesPerDay: number;
 }) {
   return (
     <article className="panel-card calculator-panel">
@@ -450,6 +492,16 @@ function CalculatorPanel({
           value={dailyRiskPercent}
           onChange={setDailyRiskPercent}
         />
+
+        <FieldRow icon={<Calculator size={18} />} label="Количество сделок в день">
+          <AmountInput
+            min={1}
+            step={1}
+            suffix="шт"
+            value={tradesPerDay}
+            onChange={setTradesPerDay}
+          />
+        </FieldRow>
 
         <LeverageControl
           marginRequired={calc.marginRequired}
@@ -778,13 +830,13 @@ function EducationSection() {
       icon: <ShieldCheck size={22} />,
     },
     {
-      title: 'Одна сделка в день',
-      text: 'Риск на сделку равен дневному лимиту.',
+      title: 'Разделите риск между сделками',
+      text: 'Если сделок 3, риск на одну ≈ 16–17$.',
       icon: <Activity size={22} />,
     },
     {
-      title: 'Укажите стоп и плечо',
-      text: 'При Stop Loss на 2% позиция ≈ 2500$, рекомендованное плечо 2.5x.',
+      title: 'Укажите стоп',
+      text: 'При стопе 7% размер позиции ≈ 238$.',
       icon: <Gauge size={22} />,
     },
   ];
@@ -814,7 +866,7 @@ function EducationSection() {
       </div>
 
       <p className="mt-4 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-center text-base font-black leading-7 text-brand-700">
-        Главная мысль: сначала считайте риск, стоп, размер позиции и плечо — и только потом открывайте сделку.
+        Главная мысль: сначала считайте риск, стоп и размер позиции — и только потом открывайте сделку.
       </p>
     </section>
   );
@@ -842,18 +894,53 @@ function FaqModal({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4">
           <FaqCard
             title="Как считается риск?"
-            formula="Дневной риск = Депозит × Лимит риска / 100; риск на сделку = дневной риск"
-            example="1000$ × 5% = 50$"
+            formula={
+              <>
+                <span className="block">Дневной риск = Депозит × Лимит риска / 100</span>
+                <span className="block">Риск на сделку = Дневной риск ÷ Количество сделок</span>
+              </>
+            }
+            example={
+              <>
+                <span className="block">1000$ × 5% = 50$</span>
+                <span className="block">50$ ÷ 3 ≈ 16.67$</span>
+              </>
+            }
           />
           <FaqCard
             title="Как считается размер позиции?"
-            formula="Процент стопа = |Цена входа − Stop Loss| ÷ Цена входа; размер позиции = риск ÷ процент стопа"
-            example="Entry 100$, Stop Loss 98$ → стоп 2%; 50$ ÷ 0.02 ≈ 2500$"
+            formula={
+              <>
+                <span className="block">Процент стопа = |Entry − Stop Loss| ÷ Entry</span>
+                <span className="block">Размер позиции = Риск на сделку ÷ Процент стопа</span>
+              </>
+            }
+            example={
+              <>
+                <span className="block">Entry 100$, Stop Loss 93$ → стоп 7%</span>
+                <span className="block">16.67$ ÷ 0.07 ≈ 238$</span>
+              </>
+            }
+          />
+          <FaqCard
+            title="Как считается R/R?"
+            formula="R/R = |Take Profit − Entry| ÷ |Entry − Stop Loss|"
+            example={
+              <>
+                <span className="block">Entry 100$, Stop Loss 93$, Take Profit 118$</span>
+                <span className="block">18 ÷ 7 ≈ 2.6, значит R/R = 1 : 2.6</span>
+              </>
+            }
           />
           <FaqCard
             title="Как считается плечо?"
-            formula="Рекомендованное плечо = Размер позиции ÷ Депозит; маржа = Размер позиции ÷ выбранное плечо"
-            example="2500$ ÷ 1000$ = 2.5x; при 3x маржа ≈ 833$"
+            formula={
+              <>
+                <span className="block">Плечо = Размер позиции ÷ Депозит</span>
+                <span className="block">Если результат ≤ 1 — показываем «Без плеча».</span>
+              </>
+            }
+            example="238$ ÷ 1000$ = 0.238 → Без плеча"
           />
           <div className="rounded-2xl border border-brand-100 bg-white p-4 shadow-soft">
             <h3 className="text-lg font-black text-brand-800">Почему важны лимиты?</h3>
@@ -1309,8 +1396,8 @@ function FaqCard({
   formula,
   title,
 }: {
-  example: string;
-  formula: string;
+  example: ReactNode;
+  formula: ReactNode;
   title: string;
 }) {
   return (
@@ -1406,14 +1493,17 @@ function normalizeHistoryItem(item: unknown, index: number): HistoryItem | null 
   const fallbackSnapshot = snapshotFromHistoryDisplay(raw, direction);
   const snapshot = normalizeSnapshot(raw.snapshot, fallbackSnapshot);
   const itemDirection = isDirection(raw.direction) ? raw.direction : snapshot.direction;
+  const displayCalc = calculateRiskValues(snapshot);
+  const riskPercentOfDeposit =
+    snapshot.deposit > 0 ? Math.max(0, (displayCalc.riskPerTrade / snapshot.deposit) * 100) : 0;
 
   return {
     id: typeof raw.id === 'string' ? raw.id : `history-${index}-${Date.now()}`,
     instrument: typeof raw.instrument === 'string' ? raw.instrument : 'CUSTOM',
     direction: itemDirection,
-    risk: typeof raw.risk === 'string' ? raw.risk : `${formatPercent(snapshot.dailyRiskPercent)}%`,
-    rr: typeof raw.rr === 'string' ? raw.rr : '1 : 0.0',
-    position: typeof raw.position === 'string' ? raw.position : '0$',
+    risk: `${formatPercent(riskPercentOfDeposit)}%`,
+    rr: `1 : ${formatRatio(displayCalc.rr)}`,
+    position: formatMoney(displayCalc.positionSize),
     date: typeof raw.date === 'string' ? raw.date : formatDateLabel(new Date()),
     snapshot: {
       ...snapshot,
@@ -1429,6 +1519,7 @@ function normalizeSnapshot(
   return {
     deposit: normalizePositiveNumber(snapshot?.deposit, fallback.deposit),
     dailyRiskPercent: normalizePositiveNumber(snapshot?.dailyRiskPercent, fallback.dailyRiskPercent),
+    tradesPerDay: normalizeTradesPerDay(snapshot?.tradesPerDay, fallback.tradesPerDay),
     selectedLeverage: normalizeLeverage(snapshot?.selectedLeverage, fallback.selectedLeverage),
     direction: isDirection(snapshot?.direction) ? snapshot.direction : fallback.direction,
     entryPrice: normalizePriceValue(snapshot?.entryPrice, fallback.entryPrice),
@@ -1442,8 +1533,10 @@ function snapshotFromHistoryDisplay(
   direction: Direction,
 ): CalculationSnapshot {
   const deposit = 1000;
-  const dailyRiskPercent = clamp(parseDisplayNumber(item.risk) || 1, 0.5, 5);
-  const riskAmount = (deposit * dailyRiskPercent) / 100;
+  const tradesPerDay = 3;
+  const riskPercentPerTrade = clamp(parseDisplayNumber(item.risk) || 1, 0.1, 100);
+  const dailyRiskPercent = clamp(riskPercentPerTrade * tradesPerDay, 0.5, 5);
+  const riskAmount = (deposit * dailyRiskPercent) / 100 / tradesPerDay;
   const positionSize = parseDisplayNumber(item.position) || 1000;
   const rr = parseRatioDisplay(item.rr) || 2;
   const stopPercent = positionSize > 0 ? (riskAmount / positionSize) * 100 : 2;
@@ -1455,6 +1548,7 @@ function snapshotFromHistoryDisplay(
   return {
     deposit,
     dailyRiskPercent,
+    tradesPerDay,
     selectedLeverage: roundLeverageUp(requiredLeverage),
     direction,
     entryPrice: formatInputPrice(entry),
@@ -1465,6 +1559,11 @@ function snapshotFromHistoryDisplay(
 
 function normalizePositiveNumber(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeTradesPerDay(value: unknown, fallback: number) {
+  const trades = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.max(1, Math.round(trades));
 }
 
 function normalizeLeverage(value: unknown, fallback: number) {
@@ -1524,7 +1623,7 @@ function formatRatio(value: number) {
 
 function formatLeverage(value: number) {
   if (!Number.isFinite(value) || value <= 1) return 'Без плеча';
-  return `${formatLeverageNumber(value)}x`;
+  return `${value.toFixed(1)}x`;
 }
 
 function formatSelectedLeverage(value: number) {
@@ -1558,8 +1657,10 @@ function formatDistancePercent(value: number) {
 }
 
 function formatPercent(value: number) {
-  if (value < 1) return value.toFixed(1).replace('.', ',');
-  return Math.round(value).toString();
+  if (!Number.isFinite(value)) return '0';
+  const rounded = Math.round(value * 10) / 10;
+  if (Number.isInteger(rounded)) return rounded.toFixed(0);
+  return rounded.toFixed(1).replace('.', ',');
 }
 
 function makeId() {
