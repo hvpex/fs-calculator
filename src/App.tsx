@@ -212,7 +212,7 @@ function App() {
       id: makeId(),
       instrument: 'CUSTOM',
       direction,
-      risk: `${formatPercent(riskPercentOfDeposit)}%`,
+      risk: formatPercent(riskPercentOfDeposit),
       rr: `1 : ${formatRatio(calc.rr)}`,
       position: formatMoney(calc.positionSize),
       date: formatDateLabel(new Date()),
@@ -678,12 +678,17 @@ function ResultsPanel({
             : 'Нужно исправить параметры сделки'}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <MetricCard icon={<ShieldCheck size={22} />} label="Дневной лимит" value={formatMoney(calc.dailyRiskAmount)} />
-        <MetricCard icon={<Activity size={22} />} label="Риск на сделку" value={formatApproxMoney(calc.riskPerTrade)} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard icon={<ShieldCheck size={22} />} label="Дневной лимит" value={formatPreciseMoney(calc.dailyRiskAmount)} />
+        <MetricCard icon={<Activity size={22} />} label="Риск на сделку" value={formatApproxPreciseMoney(calc.riskPerTrade)} />
         <MetricCard icon={<LineChart size={22} />} label="Размер позиции" value={formatMoney(calc.positionSize)} />
         <MetricCard icon={<Gauge size={22} />} label="Плечо" value={leverageLabel} />
-        <MetricCard icon={<CircleDollarSign size={22} />} label="Сумма входа" value={formatApproxPreciseMoney(calc.entryAmount)} />
+        <MetricCard
+          icon={<CircleDollarSign size={22} />}
+          label="Сумма входа"
+          tooltip="Сумма входа — это маржа, которую нужно внести при выбранном плече: размер позиции ÷ плечо."
+          value={formatApproxPreciseMoney(calc.entryAmount)}
+        />
         <MetricCard icon={<Calculator size={22} />} label="Риск/прибыль" value={`1 : ${formatRatio(calc.rr)}`} />
       </div>
 
@@ -1187,19 +1192,32 @@ function DailyRiskControl({
   onChange: (value: number) => void;
   value: number;
 }) {
-  const min = 1;
+  const min = 0.1;
   const max = 15;
-  const percent = clamp(((value - min) / (max - min)) * 100, 0, 100);
+  const sliderValue = clamp(value, min, max);
+  const percent = clamp(((sliderValue - min) / (max - min)) * 100, 0, 100);
 
   return (
     <div className="daily-risk-card">
-      <div className="flex items-center gap-3">
-        <span className="field-icon">
-          <Activity size={18} />
-        </span>
-        <div>
-          <h3>Лимит риска на день</h3>
-          <p>Максимум потерь за день: {formatMoney(dailyRiskAmount)}</p>
+      <div className="daily-risk-header">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="field-icon">
+            <Activity size={18} />
+          </span>
+          <div>
+            <h3>Лимит риска на день</h3>
+            <p>Максимум потерь за день: {formatMoney(dailyRiskAmount)}</p>
+          </div>
+        </div>
+        <div className="daily-risk-value">
+          <AmountInput
+            max={max}
+            min={0}
+            step={0.1}
+            suffix="%"
+            value={value}
+            onChange={onChange}
+          />
         </div>
       </div>
       <RiskPercentButtons
@@ -1213,18 +1231,18 @@ function DailyRiskControl({
           className="risk-range"
           max={max}
           min={min}
-          step={1}
+          step={0.1}
           type="range"
-          value={value}
-          onChange={(event) => onChange(Number(event.currentTarget.value))}
+          value={sliderValue}
+          onChange={(event) => onChange(Number.parseFloat(event.currentTarget.value))}
           style={{
             background: `linear-gradient(90deg, #7447ee 0%, #7447ee ${percent}%, #ebe5fb ${percent}%, #ebe5fb 100%)`,
           }}
         />
         <div className="daily-risk-range-caption">
-          <span>{min}%</span>
-          <span>{value}%</span>
-          <span>{max}%</span>
+          <span>{formatPercent(min)}</span>
+          <span>{formatPercent(value)}</span>
+          <span>{formatPercent(max)}</span>
         </div>
       </div>
     </div>
@@ -1318,7 +1336,7 @@ function RiskPercentButtons({
           className={option === value ? 'active' : ''}
           onClick={() => onChange(option)}
         >
-          {option}%
+          {formatPercent(option)}
         </button>
       ))}
     </div>
@@ -1424,12 +1442,30 @@ function PriceRow({
   );
 }
 
-function MetricCard({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
+function MetricCard({
+  icon,
+  label,
+  tooltip,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  tooltip?: string;
+  value: string;
+}) {
   return (
     <div className="metric-card">
       <span className="mx-auto mb-2 inline-flex text-brand-600">{icon}</span>
-      <p className="text-xs font-black text-ink/60">{label}</p>
-      <p className="mt-1 text-xl font-black text-brand-800">{value}</p>
+      <p className="metric-label">
+        <span>{label}</span>
+        {tooltip && (
+          <span className="metric-help" tabIndex={0} aria-label={tooltip}>
+            ?
+            <span className="metric-tooltip">{tooltip}</span>
+          </span>
+        )}
+      </p>
+      <p className="metric-value">{value}</p>
     </div>
   );
 }
@@ -1689,7 +1725,7 @@ function normalizeHistoryItem(item: unknown, index: number): HistoryItem | null 
     id: typeof raw.id === 'string' ? raw.id : `history-${index}-${Date.now()}`,
     instrument: typeof raw.instrument === 'string' ? raw.instrument : 'CUSTOM',
     direction: itemDirection,
-    risk: `${formatPercent(riskPercentOfDeposit)}%`,
+    risk: formatPercent(riskPercentOfDeposit),
     rr: `1 : ${formatRatio(displayCalc.rr)}`,
     position: formatMoney(displayCalc.positionSize),
     date: typeof raw.date === 'string' ? raw.date : formatDateLabel(new Date()),
@@ -1743,7 +1779,7 @@ function snapshotFromHistoryDisplay(
   const deposit = 1000;
   const tradesPerDay = 3;
   const riskPercentPerTrade = clamp(parseDisplayNumber(item.risk) || 1, 0.1, 100);
-  const dailyRiskPercent = clamp(riskPercentPerTrade * tradesPerDay, 1, 15);
+  const dailyRiskPercent = clamp(riskPercentPerTrade * tradesPerDay, 0.1, 15);
   const riskAmount = (deposit * dailyRiskPercent) / 100 / tradesPerDay;
   const positionSize = parseDisplayNumber(item.position) || 1000;
   const rr = parseRatioDisplay(item.rr) || 2;
@@ -1777,7 +1813,7 @@ function normalizeNonNegativeNumber(value: unknown, fallback: number) {
 
 function normalizeDailyRiskPercent(value: unknown, fallback: number) {
   const percent = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-  return clamp(percent, 1, 15);
+  return clamp(percent, 0.1, 15);
 }
 
 function normalizeTradesPerDay(value: unknown, fallback: number) {
@@ -1934,10 +1970,8 @@ function formatDistancePercent(value: number) {
 }
 
 function formatPercent(value: number) {
-  if (!Number.isFinite(value)) return '0';
-  const rounded = Math.round(value * 10) / 10;
-  if (Number.isInteger(rounded)) return rounded.toFixed(0);
-  return rounded.toFixed(1).replace('.', ',');
+  if (!Number.isFinite(value)) return '0%';
+  return Number.isInteger(value) ? `${value}%` : `${Number(value.toFixed(2))}%`;
 }
 
 function makeId() {
