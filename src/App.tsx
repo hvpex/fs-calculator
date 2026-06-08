@@ -474,7 +474,7 @@ function Hero() {
           Финансовая Свобода
         </p>
         <h1 className="max-w-full break-words text-[1.85rem] font-black leading-[1.08] text-ink sm:text-[3.2rem] lg:text-[3.75rem]">
-          Ккалькулятор сделки
+          Калькулятор сделки
         </h1>
         <p className="mt-3 text-2xl font-extrabold text-brand-500 sm:text-3xl">
           Не азарт, а управляемый процесс.
