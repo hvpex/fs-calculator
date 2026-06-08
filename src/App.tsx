@@ -10,7 +10,6 @@ import {
   Gauge,
   HelpCircle,
   History as HistoryIcon,
-  Info,
   LineChart,
   Lightbulb,
   MoreHorizontal,
@@ -277,7 +276,7 @@ function App() {
         <section
           id="calculator"
           className="grid gap-5 lg:grid-cols-[0.92fr_1.28fr]"
-          aria-label="Калькулятор риск-менеджмента"
+          aria-label="Калькулятор сделки"
         >
           <CalculatorPanel
             calc={calc}
@@ -475,7 +474,7 @@ function Hero() {
           Финансовая Свобода
         </p>
         <h1 className="max-w-full break-words text-[1.85rem] font-black leading-[1.08] text-ink sm:text-[3.2rem] lg:text-[3.75rem]">
-          Калькулятор риск-менеджмента
+          Ккалькулятор сделки
         </h1>
         <p className="mt-3 text-2xl font-extrabold text-brand-500 sm:text-3xl">
           Не азарт, а управляемый процесс.
@@ -614,13 +613,6 @@ function CalculatorPanel({
           />
         </div>
 
-        <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-4 py-3 text-sm font-semibold text-brand-700">
-          <span className="inline-flex items-center gap-2">
-            <Info size={17} />
-            Результаты расчётов отображаются справа.
-          </span>
-        </div>
-
         {errors.length > 0 && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
             {errors.map((error) => (
@@ -738,7 +730,6 @@ function ResultsPanel({
           tone="success"
           title="Если сработает Take Profit"
           value={`+${formatMoney(calc.potentialProfit)}`}
-          text="Прибыль выше риска"
         />
       </div>
 
@@ -1617,7 +1608,7 @@ function ScenarioCard({
   value,
 }: {
   icon: ReactNode;
-  text: string;
+  text?: string;
   title: string;
   tone: 'danger' | 'success';
   value: string;
@@ -1628,7 +1619,7 @@ function ScenarioCard({
       <div>
         <h3>{title}</h3>
         <p className="scenario-value">{value}</p>
-        <p className="scenario-text">{text}</p>
+        {text && <p className="scenario-text">{text}</p>}
       </div>
     </div>
   );
