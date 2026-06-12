@@ -64,6 +64,30 @@ button {
     @apply rounded-[26px] border border-brand-100 bg-white p-4 shadow-card sm:p-5;
   }
 
+  .mode-switch-card {
+    @apply mb-5 flex flex-col gap-3 rounded-[24px] border border-brand-100 bg-white p-3 shadow-card sm:flex-row sm:items-center sm:justify-between sm:p-4;
+  }
+
+  .mode-switch-card p {
+    @apply text-xs font-black uppercase tracking-[0.16em] text-brand-500;
+  }
+
+  .mode-switch-card h2 {
+    @apply mt-1 text-xl font-black text-ink;
+  }
+
+  .mode-switch-tabs {
+    @apply grid gap-2 rounded-2xl border border-brand-100 bg-brand-50 p-1 sm:grid-cols-2;
+  }
+
+  .mode-switch-tabs button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-brand-700 transition hover:bg-white;
+  }
+
+  .mode-switch-tabs button.active {
+    @apply bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-button;
+  }
+
   .calculator-panel,
   .results-panel {
     @apply flex flex-col;
@@ -328,10 +352,6 @@ button {
     @apply border-brand-600 bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-button;
   }
 
-  .result-band {
-    @apply flex flex-col gap-3 rounded-[22px] border border-brand-100 bg-gradient-to-r from-brand-50 to-white p-4 sm:flex-row sm:items-center sm:justify-between;
-  }
-
   .cat-sticker-wrap {
     @apply relative mt-auto flex shrink-0 items-end justify-center overflow-hidden px-0 pt-0;
     margin-bottom: -1rem;
@@ -429,6 +449,26 @@ button {
 
   .scenario-card.success > span {
     @apply bg-emerald-100;
+  }
+
+  .simple-results-panel {
+    @apply justify-between;
+  }
+
+  .simple-result-hero {
+    @apply flex flex-col gap-4 rounded-[26px] border border-brand-100 bg-gradient-to-br from-brand-600 to-brand-800 p-5 text-white shadow-button sm:flex-row sm:items-center;
+  }
+
+  .simple-result-icon {
+    @apply inline-flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-white/15 text-white ring-1 ring-white/20;
+  }
+
+  .simple-result-hero p {
+    @apply text-sm font-black text-white/75;
+  }
+
+  .simple-result-hero strong {
+    @apply mt-2 block text-4xl font-black leading-none sm:text-5xl;
   }
 
   .education-row {

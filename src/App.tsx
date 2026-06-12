@@ -25,6 +25,7 @@ import {
 
 type Direction = 'LONG' | 'SHORT';
 type StopInputMode = 'percent' | 'price';
+type CalculatorMode = 'simple' | 'detailed';
 
 type CalculationSnapshot = {
   deposit: number;
@@ -63,6 +64,7 @@ type HistoryItem = {
 const HISTORY_KEY = 'financial-freedom-risk-history';
 
 function App() {
+  const [calculatorMode, setCalculatorMode] = useState<CalculatorMode>('detailed');
   const [deposit, setDeposit] = useState(1000);
   const [dailyRiskPercent, setDailyRiskPercent] = useState(5);
   const [tradesPerDay, setTradesPerDay] = useState(3);
@@ -144,12 +146,23 @@ function App() {
     stopPercent,
     tradesPerDay,
   ]);
+  const simpleErrors = useMemo(() => {
+    const nextErrors: string[] = [];
 
-  const isValid = errors.length === 0;
+    if (deposit <= 0) nextErrors.push('Депозит должен быть больше 0.');
+    if (dailyRiskPercent <= 0) nextErrors.push('Лимит риска должен быть больше 0.');
+    if (tradesPerDay <= 0) nextErrors.push('Количество сделок должно быть больше 0.');
+    if (stopPercent <= 0) nextErrors.push('Процент стопа должен быть больше 0.');
+
+    return nextErrors;
+  }, [dailyRiskPercent, deposit, stopPercent, tradesPerDay]);
+
+  const activeErrors = calculatorMode === 'simple' ? simpleErrors : errors;
+  const isValid = activeErrors.length === 0;
   const leverageLabel = formatSelectedLeverage(calc.selectedLeverage);
   const riskPercentOfDeposit =
     deposit > 0 ? Math.max(0, (calc.riskPerTrade / deposit) * 100) : 0;
-  const isBalanced = isValid && calc.rr >= 1.5 && riskPercentOfDeposit <= 3;
+  const isBalanced = errors.length === 0 && calc.rr >= 1.5 && riskPercentOfDeposit <= 3;
 
   const updateStopPercent = (value: number) => {
     const nextPercent = Number.isFinite(value) ? value : 0;
@@ -273,42 +286,65 @@ function App() {
       <main className="mx-auto w-full max-w-[1280px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
         <Hero />
 
+        <CalculatorModeSwitch value={calculatorMode} onChange={setCalculatorMode} />
+
         <section
           id="calculator"
           className="grid gap-5 lg:grid-cols-[0.92fr_1.28fr]"
           aria-label="Калькулятор сделки"
         >
-          <CalculatorPanel
-            calc={calc}
-            dailyRiskPercent={dailyRiskPercent}
-            deposit={deposit}
-            direction={direction}
-            entryPrice={entryPrice}
-            errors={errors}
-            setDailyRiskPercent={setDailyRiskPercent}
-            setDeposit={setDeposit}
-            setDirection={updateDirection}
-            setEntryPrice={updateEntryPrice}
-            setSelectedLeverage={setSelectedLeverage}
-            setStopInputMode={setStopInputMode}
-            setStopLoss={updateStopLoss}
-            setStopPercent={updateStopPercent}
-            setTakeProfit={setTakeProfit}
-            setTradesPerDay={setTradesPerDay}
-            stopInputMode={stopInputMode}
-            stopLoss={stopLoss}
-            stopPercent={stopPercent}
-            takeProfit={takeProfit}
-            tradesPerDay={tradesPerDay}
-          />
+          {calculatorMode === 'detailed' ? (
+            <>
+              <CalculatorPanel
+                calc={calc}
+                dailyRiskPercent={dailyRiskPercent}
+                deposit={deposit}
+                direction={direction}
+                entryPrice={entryPrice}
+                errors={errors}
+                setDailyRiskPercent={setDailyRiskPercent}
+                setDeposit={setDeposit}
+                setDirection={updateDirection}
+                setEntryPrice={updateEntryPrice}
+                setSelectedLeverage={setSelectedLeverage}
+                setStopInputMode={setStopInputMode}
+                setStopLoss={updateStopLoss}
+                setStopPercent={updateStopPercent}
+                setTakeProfit={setTakeProfit}
+                setTradesPerDay={setTradesPerDay}
+                stopInputMode={stopInputMode}
+                stopLoss={stopLoss}
+                stopPercent={stopPercent}
+                takeProfit={takeProfit}
+                tradesPerDay={tradesPerDay}
+              />
 
-          <ResultsPanel
-            calc={calc}
-            direction={direction}
-            isBalanced={isBalanced}
-            isValid={isValid}
-            leverageLabel={leverageLabel}
-          />
+              <ResultsPanel
+                calc={calc}
+                direction={direction}
+                isBalanced={isBalanced}
+                isValid={errors.length === 0}
+                leverageLabel={leverageLabel}
+              />
+            </>
+          ) : (
+            <>
+              <SimpleCalculatorPanel
+                calc={calc}
+                dailyRiskPercent={dailyRiskPercent}
+                deposit={deposit}
+                errors={simpleErrors}
+                setDailyRiskPercent={setDailyRiskPercent}
+                setDeposit={setDeposit}
+                setStopPercent={updateStopPercent}
+                setTradesPerDay={setTradesPerDay}
+                stopPercent={stopPercent}
+                tradesPerDay={tradesPerDay}
+              />
+
+              <SimpleResultsPanel calc={calc} isValid={simpleErrors.length === 0} />
+            </>
+          )}
         </section>
 
         <HistorySection
@@ -487,6 +523,45 @@ function Hero() {
   );
 }
 
+function CalculatorModeSwitch({
+  onChange,
+  value,
+}: {
+  onChange: (value: CalculatorMode) => void;
+  value: CalculatorMode;
+}) {
+  return (
+    <section className="mode-switch-card" aria-label="Режим калькулятора">
+      <div>
+        <p>Режим расчёта</p>
+        <h2>{value === 'simple' ? 'Простой расчёт' : 'Детальный расчёт'}</h2>
+      </div>
+      <div className="mode-switch-tabs" role="tablist" aria-label="Выбор режима расчёта">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={value === 'simple'}
+          className={value === 'simple' ? 'active' : ''}
+          onClick={() => onChange('simple')}
+        >
+          <Calculator size={17} />
+          Простой расчёт
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={value === 'detailed'}
+          className={value === 'detailed' ? 'active' : ''}
+          onClick={() => onChange('detailed')}
+        >
+          <SlidersHorizontal size={17} />
+          Детальный расчёт
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function CalculatorPanel({
   calc,
   dailyRiskPercent,
@@ -621,18 +696,83 @@ function CalculatorPanel({
           </div>
         )}
 
-        <div className="result-band">
-          <div>
-            <p className="text-sm font-bold text-ink/60">Размер позиции</p>
-            <p className="mt-1 text-3xl font-black text-brand-700">
-              {formatApproxMoney(calc.positionSize)}
-            </p>
+        <CatSticker alt="Котик с блокнотом" image="/kotik.png" tone="left" />
+      </div>
+    </article>
+  );
+}
+
+function SimpleCalculatorPanel({
+  calc,
+  dailyRiskPercent,
+  deposit,
+  errors,
+  setDailyRiskPercent,
+  setDeposit,
+  setStopPercent,
+  setTradesPerDay,
+  stopPercent,
+  tradesPerDay,
+}: {
+  calc: Calc;
+  dailyRiskPercent: number;
+  deposit: number;
+  errors: string[];
+  setDailyRiskPercent: (value: number) => void;
+  setDeposit: (value: number) => void;
+  setStopPercent: (value: number) => void;
+  setTradesPerDay: (value: number) => void;
+  stopPercent: number;
+  tradesPerDay: number;
+}) {
+  return (
+    <article className="panel-card calculator-panel">
+      <PanelHeading icon={<Calculator size={19} />} title="Параметры сделки" />
+
+      <div className="calculator-panel-body">
+        <FieldRow icon={<Wallet size={18} />} label="Ваш депозит">
+          <AmountInput
+            min={0}
+            step={50}
+            suffix="$"
+            value={deposit}
+            onChange={setDeposit}
+          />
+        </FieldRow>
+
+        <DailyRiskControl
+          dailyRiskAmount={calc.dailyRiskAmount}
+          value={dailyRiskPercent}
+          onChange={setDailyRiskPercent}
+        />
+
+        <FieldRow icon={<Calculator size={18} />} label="Количество сделок в день">
+          <AmountInput
+            min={1}
+            step={1}
+            suffix="шт"
+            value={tradesPerDay}
+            onChange={setTradesPerDay}
+          />
+        </FieldRow>
+
+        <FieldRow icon={<SlidersHorizontal size={18} />} label="% стопа в сделке">
+          <AmountInput
+            min={0}
+            step={0.1}
+            suffix="%"
+            value={stopPercent}
+            onChange={setStopPercent}
+          />
+        </FieldRow>
+
+        {errors.length > 0 && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {errors.map((error) => (
+              <p key={error}>{error}</p>
+            ))}
           </div>
-          <p className="max-w-[300px] text-sm font-semibold leading-6 text-ink/60">
-            Если стоп сработает — вы потеряете около {formatMoney(calc.riskPerTrade)}, а не
-            половину депозита.
-          </p>
-        </div>
+        )}
 
         <CatSticker alt="Котик с блокнотом" image="/kotik.png" tone="left" />
       </div>
@@ -757,6 +897,35 @@ function ResultsPanel({
         </div>
         <div className="shield-visual" aria-hidden="true">
           <ShieldCheck size={82} strokeWidth={1.4} />
+        </div>
+      </section>
+
+      <CatSticker alt="Кошечка с листом" image="/kissa.png" tone="right" />
+    </article>
+  );
+}
+
+function SimpleResultsPanel({ calc, isValid }: { calc: Calc; isValid: boolean }) {
+  return (
+    <article className="panel-card results-panel simple-results-panel">
+      <div
+        className={`mb-4 inline-flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-extrabold ${
+          isValid
+            ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+            : 'border-amber-100 bg-amber-50 text-amber-700'
+        }`}
+      >
+        {isValid ? <CheckCircle2 size={19} /> : <CircleAlert size={19} />}
+        {isValid ? 'Расчёт готов' : 'Проверьте базовые параметры'}
+      </div>
+
+      <section className="simple-result-hero">
+        <span className="simple-result-icon">
+          <CircleDollarSign size={30} />
+        </span>
+        <div>
+          <p>Объём позиции / сумма входа</p>
+          <strong>{formatApproxPreciseMoney(calc.positionSize)}</strong>
         </div>
       </section>
 
@@ -1943,10 +2112,6 @@ function formatPreciseMoney(value: number) {
     minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: hasCents ? 2 : 0,
   })}$`;
-}
-
-function formatApproxMoney(value: number) {
-  return `~${formatMoney(value)}`;
 }
 
 function formatApproxPreciseMoney(value: number) {
