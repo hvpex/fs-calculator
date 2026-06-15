@@ -28,6 +28,7 @@ type StopInputMode = 'percent' | 'price';
 type CalculatorMode = 'simple' | 'detailed';
 
 type CalculationSnapshot = {
+  calculatorMode: CalculatorMode;
   deposit: number;
   dailyRiskPercent: number;
   tradesPerDay: number;
@@ -220,19 +221,23 @@ function App() {
       return;
     }
 
+    const historyLeverage = calculatorMode === 'simple' ? 1 : selectedLeverage;
+    const historyEntryAmount = calculatorMode === 'simple' ? calc.positionSize : calc.entryAmount;
+
     const nextItem: HistoryItem = {
       id: makeId(),
-      instrument: 'CUSTOM',
+      instrument: getCalculatorModeLabel(calculatorMode),
       direction,
       risk: formatPercent(riskPercentOfDeposit),
       rr: `1 : ${formatRatio(calc.rr)}`,
       position: formatMoney(calc.positionSize),
       date: formatDateLabel(new Date()),
       snapshot: {
+        calculatorMode,
         deposit,
         dailyRiskPercent,
         tradesPerDay,
-        selectedLeverage,
+        selectedLeverage: historyLeverage,
         direction,
         entryPrice,
         stopPercent,
@@ -241,8 +246,8 @@ function App() {
         takeProfit,
       },
       summary: {
-        leverage: selectedLeverage,
-        entryAmount: calc.entryAmount,
+        leverage: historyLeverage,
+        entryAmount: historyEntryAmount,
         positionSize: calc.positionSize,
         riskPerTrade: calc.riskPerTrade,
         dailyRiskAmount: calc.dailyRiskAmount,
@@ -259,6 +264,7 @@ function App() {
   };
 
   const applyHistoryItem = (item: HistoryItem) => {
+    setCalculatorMode(item.snapshot.calculatorMode);
     setDeposit(item.snapshot.deposit);
     setDailyRiskPercent(item.snapshot.dailyRiskPercent);
     setTradesPerDay(item.snapshot.tradesPerDay);
@@ -963,12 +969,13 @@ function HistorySection({
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-brand-100">
-        <table className="min-w-[980px] w-full border-collapse bg-white text-left text-sm">
+        <table className="min-w-[1080px] w-full border-collapse bg-white text-left text-sm">
           <thead className="bg-brand-50 text-xs uppercase text-ink/50">
             <tr>
-              <th className="px-4 py-3 font-black">Инструмент</th>
+              <th className="px-4 py-3 font-black">Режим</th>
               <th className="px-4 py-3 font-black">Направление</th>
               <th className="px-4 py-3 font-black">Риск</th>
+              <th className="px-4 py-3 font-black">% стопа</th>
               <th className="px-4 py-3 font-black">Риск/прибыль</th>
               <th className="px-4 py-3 font-black">Размер позиции</th>
               <th className="px-4 py-3 font-black">Плечо</th>
@@ -980,7 +987,7 @@ function HistorySection({
           <tbody>
             {history.length === 0 ? (
               <tr className="border-t border-brand-100/80">
-                <td colSpan={9} className="px-4 py-8 text-center text-sm font-bold text-ink/50">
+                <td colSpan={10} className="px-4 py-8 text-center text-sm font-bold text-ink/50">
                   История пока пустая. Сохранённые расчёты появятся здесь только в вашем браузере.
                 </td>
               </tr>
@@ -1002,6 +1009,7 @@ function HistorySection({
                       </span>
                     </td>
                     <td className="px-4 py-3 font-bold text-ink/70">{item.risk}</td>
+                    <td className="px-4 py-3 font-bold text-ink/70">{formatDistancePercent(item.snapshot.stopPercent)}</td>
                     <td className="px-4 py-3 font-black text-brand-800">{item.rr}</td>
                     <td className="px-4 py-3 font-bold text-ink/70">{item.position}</td>
                     <td className="px-4 py-3 font-bold text-ink/70">{formatSelectedLeverage(item.summary.leverage)}</td>
@@ -1031,7 +1039,7 @@ function HistorySection({
                   </tr>
                   {openMenuId === item.id && (
                     <tr className="border-t border-brand-100/80 bg-brand-50/50">
-                      <td colSpan={9} className="px-4 py-3">
+                      <td colSpan={10} className="px-4 py-3">
                         <div className="history-row-menu">
                           <button
                             type="button"
@@ -1912,7 +1920,10 @@ function normalizeHistoryItem(item: unknown, index: number): HistoryItem | null 
 
   return {
     id: typeof raw.id === 'string' ? raw.id : `history-${index}-${Date.now()}`,
-    instrument: typeof raw.instrument === 'string' ? raw.instrument : 'CUSTOM',
+    instrument:
+      typeof raw.instrument === 'string' && raw.instrument !== 'CUSTOM'
+        ? raw.instrument
+        : getCalculatorModeLabel(snapshot.calculatorMode),
     direction: itemDirection,
     risk: formatPercent(riskPercentOfDeposit),
     rr: `1 : ${formatRatio(displayCalc.rr)}`,
@@ -1934,6 +1945,9 @@ function normalizeSnapshot(
   const stopLoss = normalizePriceValue(snapshot?.stopLoss, fallback.stopLoss);
 
   return {
+    calculatorMode: isCalculatorMode(snapshot?.calculatorMode)
+      ? snapshot.calculatorMode
+      : fallback.calculatorMode,
     deposit: normalizePositiveNumber(snapshot?.deposit, fallback.deposit),
     dailyRiskPercent: normalizeDailyRiskPercent(snapshot?.dailyRiskPercent, fallback.dailyRiskPercent),
     tradesPerDay: normalizeTradesPerDay(snapshot?.tradesPerDay, fallback.tradesPerDay),
@@ -1979,6 +1993,7 @@ function snapshotFromHistoryDisplay(
   const rewardDistance = stopDistance * rr;
 
   return {
+    calculatorMode: 'detailed',
     deposit,
     dailyRiskPercent,
     tradesPerDay,
@@ -2048,6 +2063,14 @@ function parseRatioDisplay(value: unknown) {
   const ratioMatch = normalized.match(/:\s*(\d+(\.\d+)?)/);
   if (ratioMatch) return Number(ratioMatch[1]);
   return parseDisplayNumber(value);
+}
+
+function getCalculatorModeLabel(value: CalculatorMode) {
+  return value === 'simple' ? 'Простой' : 'Детальный';
+}
+
+function isCalculatorMode(value: unknown): value is CalculatorMode {
+  return value === 'simple' || value === 'detailed';
 }
 
 function isDirection(value: unknown): value is Direction {
