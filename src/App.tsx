@@ -12,6 +12,7 @@ import {
   History as HistoryIcon,
   LineChart,
   Lightbulb,
+  Menu,
   MoreHorizontal,
   Save,
   Send,
@@ -26,6 +27,7 @@ import {
 type Direction = 'LONG' | 'SHORT';
 type StopInputMode = 'percent' | 'price';
 type CalculatorMode = 'simple' | 'detailed';
+type SaveFeedback = 'idle' | 'saved' | 'error';
 
 type CalculationSnapshot = {
   calculatorMode: CalculatorMode;
@@ -77,6 +79,7 @@ function App() {
   const [stopLoss, setStopLoss] = useState('93.00');
   const [takeProfit, setTakeProfit] = useState('118.00');
   const [isFaqOpen, setIsFaqOpen] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>(() => readHistory());
 
@@ -161,6 +164,7 @@ function App() {
   const activeErrors = calculatorMode === 'simple' ? simpleErrors : errors;
   const isValid = activeErrors.length === 0;
   const leverageLabel = formatSelectedLeverage(calc.selectedLeverage);
+  const saveFeedback = getSaveFeedback(notice);
   const riskPercentOfDeposit =
     deposit > 0 ? Math.max(0, (calc.riskPerTrade / deposit) * 100) : 0;
   const isBalanced = errors.length === 0 && calc.rr >= 1.5 && riskPercentOfDeposit <= 3;
@@ -201,23 +205,24 @@ function App() {
   }, [notice]);
 
   useEffect(() => {
-    document.body.style.overflow = isFaqOpen ? 'hidden' : '';
+    document.body.style.overflow = isFaqOpen || isMobileSheetOpen ? 'hidden' : '';
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setIsFaqOpen(false);
+      if (event.key === 'Escape') setIsMobileSheetOpen(false);
     };
 
-    if (isFaqOpen) window.addEventListener('keydown', onKeyDown);
+    if (isFaqOpen || isMobileSheetOpen) window.addEventListener('keydown', onKeyDown);
 
     return () => {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [isFaqOpen]);
+  }, [isFaqOpen, isMobileSheetOpen]);
 
   const saveCalculation = () => {
     if (!isValid) {
-      setNotice('Исправьте ошибки в параметрах сделки перед сохранением.');
+      setNotice('Проверьте параметры расчёта');
       return;
     }
 
@@ -256,7 +261,7 @@ function App() {
     };
 
     setHistory((items) => [nextItem, ...items].slice(0, 12));
-    setNotice('Расчёт сохранён в историю.');
+    setNotice('Расчёт сохранён');
   };
 
   const deleteHistoryItem = (id: string) => {
@@ -285,14 +290,17 @@ function App() {
     <div className="min-h-screen overflow-hidden bg-[#fbfaff] text-ink">
       <Header
         onOpenFaq={() => setIsFaqOpen(true)}
-        onSave={saveCalculation}
-        notice={notice}
       />
 
-      <main className="mx-auto w-full max-w-[1280px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1280px] px-4 pb-40 pt-28 sm:px-6 lg:px-8 lg:pb-10 lg:pt-6">
         <Hero />
 
-        <CalculatorModeSwitch value={calculatorMode} onChange={setCalculatorMode} />
+        <CalculatorModeSwitch
+          onChange={setCalculatorMode}
+          onSave={saveCalculation}
+          saveFeedback={saveFeedback}
+          value={calculatorMode}
+        />
 
         <section
           id="calculator"
@@ -358,6 +366,7 @@ function App() {
           onApply={applyHistoryItem}
           onDelete={deleteHistoryItem}
           onSave={saveCalculation}
+          saveFeedback={saveFeedback}
         />
 
         <EducationSection />
@@ -365,7 +374,26 @@ function App() {
 
       <Footer onOpenFaq={() => setIsFaqOpen(true)} />
 
+      <MobileStickySummary
+        calc={calc}
+        calculatorMode={calculatorMode}
+        onOpenDetails={() => setIsMobileSheetOpen(true)}
+        onSave={saveCalculation}
+        saveFeedback={saveFeedback}
+      />
+
       {isFaqOpen && <FaqModal onClose={() => setIsFaqOpen(false)} />}
+      {isMobileSheetOpen && (
+        <MobileResultsSheet
+          calc={calc}
+          calculatorMode={calculatorMode}
+          direction={direction}
+          isValid={isValid}
+          onClose={() => setIsMobileSheetOpen(false)}
+          onSave={saveCalculation}
+          saveFeedback={saveFeedback}
+        />
+      )}
     </div>
   );
 }
@@ -442,56 +470,49 @@ function calculateRiskValues({
   };
 }
 
-function Header({
-  notice,
-  onOpenFaq,
-  onSave,
-}: {
-  notice: string;
-  onOpenFaq: () => void;
-  onSave: () => void;
-}) {
+function Header({ onOpenFaq }: { onOpenFaq: () => void }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
-    <header className="sticky top-0 z-30 border-b border-brand-100/80 bg-white/90 backdrop-blur-xl">
+    <header className="site-header">
       <div className="mx-auto flex w-full max-w-[1280px] min-w-0 flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="mobile-header-row flex w-full min-w-0 items-center justify-between gap-3 lg:w-auto">
           <BrandLogo />
           <button
             type="button"
-            onClick={onOpenFaq}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-2xl border border-brand-200 bg-brand-50 px-3 text-brand-700 shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 lg:hidden"
-            aria-label="Открыть FAQ"
+            onClick={() => setIsMobileMenuOpen((value) => !value)}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-brand-200 bg-brand-50 text-brand-700 shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 hover:text-brand-600 lg:hidden"
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
           >
-            <HelpCircle size={19} />
-            <span className="text-xs font-black">FAQ</span>
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
 
-        <nav className="mobile-nav grid w-full max-w-[calc(100vw-2rem)] grid-cols-1 gap-1 overflow-hidden rounded-2xl border border-brand-100/80 bg-brand-50/60 p-1 text-xs font-semibold text-ink/80 sm:grid-cols-3 sm:text-sm lg:w-auto lg:max-w-none lg:flex lg:flex-wrap lg:items-center lg:justify-center lg:gap-2 lg:bg-transparent lg:p-0">
-          <a className="nav-link" href="#calculator">
+        <nav className={`mobile-nav ${isMobileMenuOpen ? 'mobile-nav-open' : ''}`}>
+          <a className="nav-link" href="#calculator" onClick={closeMobileMenu}>
             Калькулятор
           </a>
-          <a className="nav-link" href="#how-it-works">
+          <a className="nav-link" href="#how-it-works" onClick={closeMobileMenu}>
             Как это работает
           </a>
-          <a className="nav-link" href="#recommendations">
+          <a className="nav-link" href="#recommendations" onClick={closeMobileMenu}>
             Рекомендации
           </a>
-          <button type="button" onClick={onOpenFaq} className="nav-link lg:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              closeMobileMenu();
+              onOpenFaq();
+            }}
+            className="nav-link lg:hidden"
+          >
             FAQ
           </button>
         </nav>
 
-        <div className="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto">
-          {notice && (
-            <span className="hidden rounded-2xl border border-brand-100 bg-white px-3 py-2 text-xs font-semibold text-brand-700 shadow-soft xl:inline-flex">
-              {notice}
-            </span>
-          )}
-          <button type="button" onClick={onSave} className="primary-button w-full max-w-[calc(100vw-2rem)] sm:w-auto">
-            <Save size={17} />
-            Сохранить расчёт
-          </button>
+        <div className="hidden w-full min-w-0 items-center justify-end gap-2 sm:w-auto lg:flex">
           <button
             type="button"
             onClick={onOpenFaq}
@@ -531,9 +552,13 @@ function Hero() {
 
 function CalculatorModeSwitch({
   onChange,
+  onSave,
+  saveFeedback,
   value,
 }: {
   onChange: (value: CalculatorMode) => void;
+  onSave: () => void;
+  saveFeedback: SaveFeedback;
   value: CalculatorMode;
 }) {
   return (
@@ -542,26 +567,35 @@ function CalculatorModeSwitch({
         <p>Режим расчёта</p>
         <h2>{value === 'simple' ? 'Простой расчёт' : 'Детальный расчёт'}</h2>
       </div>
-      <div className="mode-switch-tabs" role="tablist" aria-label="Выбор режима расчёта">
+      <div className="mode-switch-actions">
+        <div className="mode-switch-tabs" role="tablist" aria-label="Выбор режима расчёта">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={value === 'simple'}
+            className={value === 'simple' ? 'active' : ''}
+            onClick={() => onChange('simple')}
+          >
+            <Calculator size={17} />
+            Простой расчёт
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={value === 'detailed'}
+            className={value === 'detailed' ? 'active' : ''}
+            onClick={() => onChange('detailed')}
+          >
+            <SlidersHorizontal size={17} />
+            Детальный расчёт
+          </button>
+        </div>
         <button
           type="button"
-          role="tab"
-          aria-selected={value === 'simple'}
-          className={value === 'simple' ? 'active' : ''}
-          onClick={() => onChange('simple')}
+          className={`desktop-calculation-save save-feedback-${saveFeedback}`}
+          onClick={onSave}
         >
-          <Calculator size={17} />
-          Простой расчёт
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={value === 'detailed'}
-          className={value === 'detailed' ? 'active' : ''}
-          onClick={() => onChange('detailed')}
-        >
-          <SlidersHorizontal size={17} />
-          Детальный расчёт
+          <SaveButtonContent idleLabel="Сохранить расчёт" status={saveFeedback} />
         </button>
       </div>
     </section>
@@ -879,35 +913,41 @@ function ResultsPanel({
         />
       </div>
 
-      <section id="recommendations" className="recommendations-card">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="icon-tile">
-              <Lightbulb size={19} />
-            </span>
-            <h2 className="section-title">Рекомендации</h2>
-          </div>
-          <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-ink/70">
-            {[
-              'Не рискуйте всем депозитом.',
-              'Держите риск одной сделки в пределах дневного лимита.',
-              'Сначала считайте стоп и размер позиции.',
-              'Главная задача новичка — сохранить депозит.',
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-brand-600" size={17} />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="shield-visual" aria-hidden="true">
-          <ShieldCheck size={82} strokeWidth={1.4} />
-        </div>
-      </section>
+      <RecommendationsBlock />
 
       <CatSticker alt="Кошечка с листом" image="/kissa.png" tone="right" />
     </article>
+  );
+}
+
+function RecommendationsBlock({ withAnchor = true }: { withAnchor?: boolean }) {
+  return (
+    <section id={withAnchor ? 'recommendations' : undefined} className="recommendations-card">
+      <div>
+        <div className="flex items-center gap-3">
+          <span className="icon-tile">
+            <Lightbulb size={19} />
+          </span>
+          <h2 className="section-title">Рекомендации</h2>
+        </div>
+        <ul className="mt-3 space-y-2 text-sm font-semibold leading-6 text-ink/70">
+          {[
+            'Не рискуйте всем депозитом.',
+            'Держите риск одной сделки в пределах дневного лимита.',
+            'Сначала считайте стоп и размер позиции.',
+            'Главная задача новичка — сохранить депозит.',
+          ].map((item) => (
+            <li key={item} className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 shrink-0 text-brand-600" size={17} />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="shield-visual" aria-hidden="true">
+        <ShieldCheck size={82} strokeWidth={1.4} />
+      </div>
+    </section>
   );
 }
 
@@ -930,7 +970,7 @@ function SimpleResultsPanel({ calc, isValid }: { calc: Calc; isValid: boolean })
           <CircleDollarSign size={30} />
         </span>
         <div>
-          <p>Объём позиции / сумма входа</p>
+          <p>Сумма входа</p>
           <strong>{formatApproxPreciseMoney(calc.positionSize)}</strong>
         </div>
       </section>
@@ -940,16 +980,183 @@ function SimpleResultsPanel({ calc, isValid }: { calc: Calc; isValid: boolean })
   );
 }
 
+function MobileStickySummary({
+  calc,
+  calculatorMode,
+  onOpenDetails,
+  onSave,
+  saveFeedback,
+}: {
+  calc: Calc;
+  calculatorMode: CalculatorMode;
+  onOpenDetails: () => void;
+  onSave: () => void;
+  saveFeedback: SaveFeedback;
+}) {
+  const ownEntryAmount = getOwnEntryAmount(calc, calculatorMode);
+
+  return (
+    <aside className="mobile-summary-bar" aria-label="Краткий результат расчёта">
+      <div className={`mobile-summary-values ${calculatorMode === 'simple' ? 'single' : ''}`}>
+        {calculatorMode === 'simple' ? (
+          <SummaryMiniItem label="Объём позиции" value={formatMoney(calc.positionSize)} />
+        ) : (
+          <>
+            <SummaryMiniItem label="Сумма сделки" value={formatMoney(calc.positionSize)} />
+            <SummaryMiniItem label="Вход своими" value={formatPreciseMoney(ownEntryAmount)} />
+            <SummaryMiniItem label="Риск" value={formatPreciseMoney(calc.riskPerTrade)} />
+          </>
+        )}
+      </div>
+      <div className="mobile-summary-actions">
+        <button
+          type="button"
+          className={`mobile-save-button save-feedback-${saveFeedback}`}
+          onClick={onSave}
+        >
+          <SaveButtonContent compact idleLabel="Сохранить" status={saveFeedback} />
+        </button>
+        <button type="button" className="mobile-details-button" onClick={onOpenDetails}>
+          Подробнее
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function SummaryMiniItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function MobileResultsSheet({
+  calc,
+  calculatorMode,
+  direction,
+  isValid,
+  onClose,
+  onSave,
+  saveFeedback,
+}: {
+  calc: Calc;
+  calculatorMode: CalculatorMode;
+  direction: Direction;
+  isValid: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  saveFeedback: SaveFeedback;
+}) {
+  const ownEntryAmount = getOwnEntryAmount(calc, calculatorMode);
+  const leverageLabel = calculatorMode === 'simple' ? '1x' : formatSelectedLeverage(calc.selectedLeverage);
+
+  return (
+    <div className="mobile-sheet-backdrop" role="dialog" aria-modal="true" aria-label="Подробный результат">
+      <button type="button" className="mobile-sheet-scrim" aria-label="Закрыть результат" onClick={onClose} />
+      <section className="mobile-sheet">
+        <div className="mobile-sheet-handle" aria-hidden="true" />
+        <div className="mobile-sheet-head">
+          <div>
+            <p>Полный результат</p>
+            <h2>{isValid ? 'Расчёт готов' : 'Проверьте параметры'}</h2>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Закрыть" className="mobile-sheet-close">
+            <X size={19} />
+          </button>
+        </div>
+
+        {calculatorMode === 'simple' ? (
+          <section className="mobile-sheet-simple-result">
+            <span>Объём позиции</span>
+            <strong>{formatMoney(calc.positionSize)}</strong>
+          </section>
+        ) : (
+          <>
+            <div className="mobile-sheet-metrics">
+              <SheetMetric label="Дневной лимит" value={formatPreciseMoney(calc.dailyRiskAmount)} />
+              <SheetMetric label="Риск на сделку" value={formatApproxPreciseMoney(calc.riskPerTrade)} />
+              <SheetMetric label="Сумма сделки" value={formatMoney(calc.positionSize)} />
+              <SheetMetric label="Сумма входа своими" value={formatPreciseMoney(ownEntryAmount)} />
+              <SheetMetric label="Плечо" value={leverageLabel} />
+              <SheetMetric label="R/R" value={`1 : ${formatRatio(calc.rr)}`} />
+            </div>
+
+            <TradeMap calc={calc} direction={direction} />
+          </>
+        )}
+        <RecommendationsBlock withAnchor={false} />
+
+        <button
+          type="button"
+          className={`mobile-sheet-save save-feedback-${saveFeedback}`}
+          onClick={onSave}
+        >
+          <SaveButtonContent idleLabel="Сохранить расчёт" status={saveFeedback} />
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function SheetMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mobile-sheet-metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SaveButtonContent({
+  compact = false,
+  idleLabel,
+  status,
+}: {
+  compact?: boolean;
+  idleLabel: string;
+  status: SaveFeedback;
+}) {
+  if (status === 'saved') {
+    return (
+      <span key="saved" className="save-button-content">
+        <CheckCircle2 size={compact ? 16 : 17} />
+        {compact ? 'Сохранено' : 'Расчёт сохранён'}
+      </span>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <span key="error" className="save-button-content">
+        <CircleAlert size={compact ? 16 : 17} />
+        {compact ? 'Проверьте' : 'Проверьте параметры'}
+      </span>
+    );
+  }
+
+  return (
+    <span key="idle" className="save-button-content">
+      <Save size={compact ? 16 : 17} />
+      {idleLabel}
+    </span>
+  );
+}
+
 function HistorySection({
   history,
   onApply,
   onDelete,
   onSave,
+  saveFeedback,
 }: {
   history: HistoryItem[];
   onApply: (item: HistoryItem) => void;
   onDelete: (id: string) => void;
   onSave: () => void;
+  saveFeedback: SaveFeedback;
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -962,9 +1169,12 @@ function HistorySection({
           </span>
           <h2 className="text-2xl font-black text-ink">История расчётов</h2>
         </div>
-        <button type="button" onClick={onSave} className="secondary-button">
-          <Save size={17} />
-          Сохранить расчёт
+        <button
+          type="button"
+          onClick={onSave}
+          className={`secondary-button save-feedback-${saveFeedback}`}
+        >
+          <SaveButtonContent idleLabel="Сохранить расчёт" status={saveFeedback} />
         </button>
       </div>
 
@@ -992,72 +1202,81 @@ function HistorySection({
                 </td>
               </tr>
             ) : (
-              history.map((item) => (
-                <Fragment key={item.id}>
-                  <tr className="border-t border-brand-100/80 transition hover:bg-brand-50/40">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3 font-extrabold text-ink">
-                        <span className="history-symbol">
-                          <LineChart size={15} />
-                        </span>
-                        {item.instrument}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`direction-pill ${item.direction === 'LONG' ? 'long' : 'short'}`}>
-                        {item.direction}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-ink/70">{item.risk}</td>
-                    <td className="px-4 py-3 font-bold text-ink/70">{formatDistancePercent(item.snapshot.stopPercent)}</td>
-                    <td className="px-4 py-3 font-black text-brand-800">{item.rr}</td>
-                    <td className="px-4 py-3 font-bold text-ink/70">{item.position}</td>
-                    <td className="px-4 py-3 font-bold text-ink/70">{formatSelectedLeverage(item.summary.leverage)}</td>
-                    <td className="px-4 py-3 font-bold text-ink/70">{formatPreciseMoney(item.summary.entryAmount)}</td>
-                    <td className="px-4 py-3 font-semibold text-ink/60">{item.date}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="table-icon-button"
-                          onClick={() => setOpenMenuId((id) => (id === item.id ? null : item.id))}
-                          aria-expanded={openMenuId === item.id}
-                          aria-label={`Меню расчёта ${item.instrument}`}
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                        <button
-                          type="button"
-                          className="table-icon-button danger"
-                          onClick={() => onDelete(item.id)}
-                          aria-label={`Удалить расчёт ${item.instrument}`}
-                        >
-                          <Trash2 size={17} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  {openMenuId === item.id && (
-                    <tr className="border-t border-brand-100/80 bg-brand-50/50">
-                      <td colSpan={10} className="px-4 py-3">
-                        <div className="history-row-menu">
+              history.map((item) => {
+                const isSimple = item.snapshot.calculatorMode === 'simple';
+                const riskDisplay = isSimple ? formatPreciseMoney(item.summary.riskPerTrade) : item.risk;
+
+                return (
+                  <Fragment key={item.id}>
+                    <tr className="border-t border-brand-100/80 transition hover:bg-brand-50/40">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3 font-extrabold text-ink">
+                          <span className="history-symbol">
+                            <LineChart size={15} />
+                          </span>
+                          {item.instrument}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {isSimple ? null : (
+                          <span className={`direction-pill ${item.direction === 'LONG' ? 'long' : 'short'}`}>
+                            {item.direction}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-ink/70">{riskDisplay}</td>
+                      <td className="px-4 py-3 font-bold text-ink/70">{formatDistancePercent(item.snapshot.stopPercent)}</td>
+                      <td className="px-4 py-3 font-black text-brand-800">{isSimple ? null : item.rr}</td>
+                      <td className="px-4 py-3 font-bold text-ink/70">{isSimple ? null : item.position}</td>
+                      <td className="px-4 py-3 font-bold text-ink/70">
+                        {isSimple ? null : formatSelectedLeverage(item.summary.leverage)}
+                      </td>
+                      <td className="px-4 py-3 font-bold text-ink/70">{formatPreciseMoney(item.summary.entryAmount)}</td>
+                      <td className="px-4 py-3 font-semibold text-ink/60">{item.date}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
                           <button
                             type="button"
-                            className="history-menu-action"
-                            onClick={() => {
-                              onApply(item);
-                              setOpenMenuId(null);
-                            }}
+                            className="table-icon-button"
+                            onClick={() => setOpenMenuId((id) => (id === item.id ? null : item.id))}
+                            aria-expanded={openMenuId === item.id}
+                            aria-label={`Меню расчёта ${item.instrument}`}
                           >
-                            <Calculator size={16} />
-                            Добавить в калькулятор
+                            <MoreHorizontal size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="table-icon-button danger"
+                            onClick={() => onDelete(item.id)}
+                            aria-label={`Удалить расчёт ${item.instrument}`}
+                          >
+                            <Trash2 size={17} />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  )}
-                </Fragment>
-              ))
+                    {openMenuId === item.id && (
+                      <tr className="border-t border-brand-100/80 bg-brand-50/50">
+                        <td colSpan={10} className="px-4 py-3">
+                          <div className="history-row-menu">
+                            <button
+                              type="button"
+                              className="history-menu-action"
+                              onClick={() => {
+                                onApply(item);
+                                setOpenMenuId(null);
+                              }}
+                            >
+                              <Calculator size={16} />
+                              Добавить в калькулятор
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -2067,6 +2286,16 @@ function parseRatioDisplay(value: unknown) {
 
 function getCalculatorModeLabel(value: CalculatorMode) {
   return value === 'simple' ? 'Простой' : 'Детальный';
+}
+
+function getOwnEntryAmount(calc: Calc, calculatorMode: CalculatorMode) {
+  return calculatorMode === 'simple' ? calc.positionSize : calc.entryAmount;
+}
+
+function getSaveFeedback(notice: string): SaveFeedback {
+  if (notice === 'Расчёт сохранён') return 'saved';
+  if (notice === 'Проверьте параметры расчёта') return 'error';
+  return 'idle';
 }
 
 function isCalculatorMode(value: unknown): value is CalculatorMode {

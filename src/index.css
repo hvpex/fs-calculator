@@ -39,9 +39,21 @@ button {
 }
 
 @layer components {
+  .site-header {
+    @apply fixed inset-x-0 top-0 z-40 border-b border-brand-100/80 bg-white/90 backdrop-blur-xl lg:sticky;
+  }
+
   .nav-link {
     @apply flex min-h-10 min-w-0 items-center justify-center rounded-xl px-2 py-2 text-center leading-tight transition hover:bg-white hover:text-brand-700 sm:px-3 lg:px-4 lg:hover:bg-brand-50;
     overflow-wrap: anywhere;
+  }
+
+  .mobile-nav {
+    @apply hidden w-full max-w-[calc(100vw-2rem)] grid-cols-1 gap-1 overflow-hidden rounded-2xl border border-brand-100/80 bg-brand-50/60 p-1 text-xs font-semibold text-ink/80 sm:text-sm lg:flex lg:w-auto lg:max-w-none lg:flex-wrap lg:items-center lg:justify-center lg:gap-2 lg:border-0 lg:bg-transparent lg:p-0;
+  }
+
+  .mobile-nav.mobile-nav-open {
+    @apply grid lg:flex;
   }
 
   .brand-logo {
@@ -58,6 +70,37 @@ button {
 
   .secondary-button {
     @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white px-4 py-2 text-sm font-black text-brand-700 shadow-soft transition hover:-translate-y-0.5 hover:bg-brand-50 focus:outline-none focus:ring-4 focus:ring-brand-100;
+  }
+
+  .save-feedback-idle,
+  .save-feedback-saved,
+  .save-feedback-error {
+    @apply transition-all duration-300 ease-out;
+  }
+
+  .save-button-content {
+    @apply inline-flex items-center justify-center gap-2;
+    animation: save-button-content-in 180ms ease-out;
+  }
+
+  .desktop-calculation-save.save-feedback-saved,
+  .mobile-sheet-save.save-feedback-saved {
+    @apply from-emerald-500 to-emerald-600;
+  }
+
+  .desktop-calculation-save.save-feedback-error,
+  .mobile-sheet-save.save-feedback-error {
+    @apply from-amber-400 to-amber-500;
+  }
+
+  .secondary-button.save-feedback-saved,
+  .mobile-save-button.save-feedback-saved {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+
+  .secondary-button.save-feedback-error,
+  .mobile-save-button.save-feedback-error {
+    @apply border-amber-200 bg-amber-50 text-amber-700;
   }
 
   .panel-card {
@@ -86,6 +129,14 @@ button {
 
   .mode-switch-tabs button.active {
     @apply bg-gradient-to-b from-brand-500 to-brand-700 text-white shadow-button;
+  }
+
+  .mode-switch-actions {
+    @apply flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-end;
+  }
+
+  .desktop-calculation-save {
+    @apply hidden min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-brand-500 to-brand-700 px-4 text-sm font-black text-white shadow-button transition hover:-translate-y-0.5 hover:from-brand-400 hover:to-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-200 lg:inline-flex;
   }
 
   .calculator-panel,
@@ -471,6 +522,113 @@ button {
     @apply mt-2 block text-4xl font-black leading-none sm:text-5xl;
   }
 
+  .mobile-summary-bar {
+    @apply fixed inset-x-3 bottom-3 z-40 rounded-[24px] border border-brand-100 bg-white/95 p-3 shadow-card backdrop-blur-xl lg:hidden;
+  }
+
+  .mobile-summary-values {
+    @apply grid grid-cols-3 gap-2;
+  }
+
+  .mobile-summary-values.single {
+    @apply grid-cols-1;
+  }
+
+  .mobile-summary-values div {
+    @apply min-w-0 rounded-2xl bg-brand-50 px-2 py-2 text-center;
+  }
+
+  .mobile-summary-values span {
+    @apply block truncate text-[10px] font-black leading-4 text-ink/50;
+  }
+
+  .mobile-summary-values strong {
+    @apply mt-0.5 block truncate text-sm font-black text-brand-800;
+  }
+
+  .mobile-summary-values.single strong {
+    @apply text-xl;
+  }
+
+  .mobile-summary-actions {
+    @apply mt-3 grid grid-cols-2 gap-2;
+  }
+
+  .mobile-save-button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-brand-200 bg-white px-3 text-sm font-black text-brand-700 shadow-soft;
+  }
+
+  .mobile-details-button {
+    @apply inline-flex min-h-11 items-center justify-center rounded-2xl bg-gradient-to-b from-brand-500 to-brand-700 px-3 text-sm font-black text-white shadow-button;
+  }
+
+  .mobile-sheet-backdrop {
+    @apply fixed inset-0 z-50 flex items-end lg:hidden;
+  }
+
+  .mobile-sheet-scrim {
+    @apply absolute inset-0 border-0 bg-ink/35 p-0 backdrop-blur-sm;
+  }
+
+  .mobile-sheet {
+    @apply relative z-10 max-h-[86vh] w-full overflow-y-auto rounded-t-[30px] border border-brand-100 bg-white p-4 shadow-card;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    animation: sheet-in 180ms ease-out;
+  }
+
+  .mobile-sheet-handle {
+    @apply mx-auto mb-3 h-1.5 w-12 rounded-full bg-brand-200;
+  }
+
+  .mobile-sheet-head {
+    @apply mb-4 flex items-start justify-between gap-3;
+  }
+
+  .mobile-sheet-head p {
+    @apply text-xs font-black uppercase tracking-[0.16em] text-brand-500;
+  }
+
+  .mobile-sheet-head h2 {
+    @apply mt-1 text-2xl font-black text-ink;
+  }
+
+  .mobile-sheet-close {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-brand-100 bg-brand-50 text-brand-700;
+  }
+
+  .mobile-sheet-metrics {
+    @apply grid grid-cols-2 gap-2;
+  }
+
+  .mobile-sheet-metric {
+    @apply rounded-2xl border border-brand-100 bg-brand-50/70 px-3 py-3;
+  }
+
+  .mobile-sheet-metric span {
+    @apply block text-xs font-black text-ink/50;
+  }
+
+  .mobile-sheet-metric strong {
+    @apply mt-1 block text-lg font-black text-brand-800;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-sheet-simple-result {
+    @apply rounded-[26px] border border-brand-100 bg-gradient-to-br from-brand-600 to-brand-800 p-5 text-white shadow-button;
+  }
+
+  .mobile-sheet-simple-result span {
+    @apply text-sm font-black text-white/75;
+  }
+
+  .mobile-sheet-simple-result strong {
+    @apply mt-2 block text-4xl font-black leading-none;
+  }
+
+  .mobile-sheet-save {
+    @apply mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-brand-500 to-brand-700 px-4 text-sm font-black text-white shadow-button;
+  }
+
   .education-row {
     @apply grid gap-3 rounded-[24px] border border-brand-100 bg-white p-4 shadow-soft lg:grid-cols-[1.1fr_repeat(4,1fr)] lg:items-stretch;
   }
@@ -724,10 +882,31 @@ button {
   }
 }
 
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes save-button-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 640px) {
   .mobile-header-row,
-  .mobile-nav,
-  header .primary-button {
+  .mobile-nav {
     width: calc(100vw - 2rem);
     max-width: calc(100vw - 2rem);
   }
